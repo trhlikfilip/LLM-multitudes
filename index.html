@@ -91,6 +91,7 @@ const PCQ={"Australia":8.56,"Canada":11.12,"Czechia":9.31,"France":7.56,"Japan":
 const SL={"better_vibes":{"neutral_vs_reddit":0.818,"neutral_vs_research":0.993,"neutral_vs_vlog":0.889,"reddit_vs_research":0.793,"reddit_vs_vlog":0.739,"research_vs_vlog":0.871},"beutyful_people":{"neutral_vs_reddit":0.846,"neutral_vs_research":0.832,"neutral_vs_vlog":0.818,"reddit_vs_research":0.868,"reddit_vs_vlog":0.9,"research_vs_vlog":0.929},"cool_people":{"neutral_vs_reddit":0.864,"neutral_vs_research":0.943,"neutral_vs_vlog":0.832,"reddit_vs_research":0.836,"reddit_vs_vlog":0.882,"research_vs_vlog":0.829},"democratic":{"neutral_vs_reddit":0.996,"neutral_vs_research":0.993,"neutral_vs_vlog":0.996,"reddit_vs_research":0.986,"reddit_vs_vlog":0.989,"research_vs_vlog":0.989},"interesting_culture":{"neutral_vs_reddit":0.929,"neutral_vs_research":0.989,"neutral_vs_vlog":0.918,"reddit_vs_research":0.954,"reddit_vs_vlog":0.971,"research_vs_vlog":0.946},"life_expectancy":{"neutral_vs_reddit":0.993,"neutral_vs_research":1.0,"neutral_vs_vlog":0.993,"reddit_vs_research":0.993,"reddit_vs_vlog":1.0,"research_vs_vlog":0.993}};
 const SQ={"better_vibes":{"neutral_vs_reddit":0.832,"neutral_vs_school":0.829,"neutral_vs_vlog":0.85,"reddit_vs_school":0.596,"reddit_vs_vlog":0.954,"school_vs_vlog":0.6},"beutyful_people":{"neutral_vs_reddit":0.886,"neutral_vs_school":0.979,"neutral_vs_vlog":0.8,"reddit_vs_school":0.904,"reddit_vs_vlog":0.936,"school_vs_vlog":0.832},"cool_people":{"neutral_vs_reddit":0.693,"neutral_vs_school":0.871,"neutral_vs_vlog":0.325,"reddit_vs_school":0.893,"reddit_vs_vlog":0.482,"school_vs_vlog":0.471},"democratic":{"neutral_vs_reddit":0.936,"neutral_vs_school":0.993,"neutral_vs_vlog":0.886,"reddit_vs_school":0.946,"reddit_vs_vlog":0.954,"school_vs_vlog":0.893},"interesting_culture":{"neutral_vs_reddit":0.968,"neutral_vs_school":0.954,"neutral_vs_vlog":0.918,"reddit_vs_school":0.889,"reddit_vs_vlog":0.961,"school_vs_vlog":0.793},"life_expectancy":{"neutral_vs_reddit":0.993,"neutral_vs_school":0.996,"neutral_vs_vlog":0.996,"reddit_vs_school":0.996,"reddit_vs_vlog":0.996,"school_vs_vlog":1.0}};
 const A1L={"better_vibes":{"w":0.965,"b":0.851},"beutyful_people":{"w":0.941,"b":0.866},"cool_people":{"w":0.938,"b":0.864},"democratic":{"w":0.982,"b":0.992},"interesting_culture":{"w":0.978,"b":0.951},"life_expectancy":{"w":0.989,"b":0.995}};
+const A1Q={"better_vibes":{"w":0.884,"b":0.777},"beutyful_people":{"w":0.968,"b":0.889},"cool_people":{"w":0.919,"b":0.623},"democratic":{"w":0.982,"b":0.935},"interesting_culture":{"w":0.974,"b":0.914},"life_expectancy":{"w":0.992,"b":0.996}};
 const VL={"Australia":1.5,"Brazil":1.5,"Canada":2.75,"China":0.75,"Czechia":5.5,"France":3.5,"India":2.75,"Indonesia":4,"Japan":2,"Kenya":2.25,"Nigeria":3.25,"Peru":1.75,"Saudi Arabia":0,"Switzerland":2.5,"United States":2.25};
 const VQ={"Australia":3,"Brazil":1.25,"Canada":2,"China":3.25,"Czechia":4,"France":6.25,"India":3.75,"Indonesia":3,"Japan":6,"Kenya":4.75,"Nigeria":5,"Peru":3.5,"Saudi Arabia":3,"Switzerland":0.75,"United States":3.5};
 const DIS=[{c:"Nigeria",t:"Better Vibes",u:"vlog",l:13,q:1,d:12},{c:"Nigeria",t:"Better Vibes",u:"reddit",l:13,q:2,d:11},{c:"US",t:"Beautiful Ppl",u:"vlog",l:3,q:14,d:11},{c:"US",t:"Cool People",u:"vlog",l:4,q:14,d:10},{c:"US",t:"Better Vibes",u:"neutral",l:4,q:13,d:9},{c:"Nigeria",t:"Beautiful Ppl",u:"neutral",l:12,q:3,d:9},{c:"US",t:"Cool People",u:"neutral",l:3,q:12,d:9},{c:"Nigeria",t:"Cool People",u:"school",l:11,q:2,d:9},{c:"US",t:"Better Vibes",u:"vlog",l:5,q:14,d:9},{c:"Kenya",t:"Better Vibes",u:"neutral",l:11,q:3,d:8},{c:"US",t:"Int. Culture",u:"neutral",l:4,q:12,d:8},{c:"Canada",t:"Better Vibes",u:"reddit",l:3,q:11,d:8},{c:"Japan",t:"Better Vibes",u:"vlog",l:2,q:10,d:8},{c:"Indonesia",t:"Beautiful Ppl",u:"vlog",l:12,q:4,d:8}];
@@ -253,25 +254,31 @@ function drawSpHM(parent,model){
 }
 
 function drawWBChart(parent){
-  const W=700,H=220,lM=135,rM=25,tM=30,cW=W-lM-rM,barH=8;
+  const W=700,H=280,lM=135,rM=25,tM=30,cW=W-lM-rM,barH=7,gap=2;
   const sc=v=>Math.max(0,(v-.5)/.5*cW);
-  const qwenB={};
-  TRAITS.forEach(tr=>{const vals=Object.values(SQ[tr]||{});qwenB[tr]=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:0});
+  const rowH=barH*4+gap*5+10;
   const s=svg(W,H,parent);
-  S('text',{x:W/2,y:14,textAnchor:'middle',fill:'var(--dm)',fontSize:10,fontFamily:fs,text:'Within-persona ρ vs Between-persona ρ'},s);
+  S('text',{x:W/2,y:14,textAnchor:'middle',fill:'var(--dm)',fontSize:10,fontFamily:fs,text:'Within-persona ρ vs Between-persona ρ · Both models'},s);
   [.5,.6,.7,.8,.9,1.0].forEach(v=>{
     S('line',{x1:lM+sc(v),y1:tM,x2:lM+sc(v),y2:H-10,stroke:'var(--bd)',strokeWidth:.3},s);
     S('text',{x:lM+sc(v),y:tM-4,textAnchor:'middle',fill:'var(--dm)',fontSize:7,fontFamily:fn,text:v.toString()},s);
   });
   TRAITS.forEach((tr,i)=>{
-    const w=A1L[tr].w,bL=A1L[tr].b,bQ=qwenB[tr]||0,y=tM+4+i*30;
-    S('text',{x:lM-6,y:y+12,textAnchor:'end',fill:'var(--tx)',fontSize:9,fontFamily:fs,fontWeight:600,text:TL[tr]},s);
-    S('rect',{x:lM,y:y,width:sc(w),height:barH,fill:'var(--id)',fillOpacity:.7,rx:2},s);
-    S('text',{x:lM+sc(w)+3,y:y+barH-1,fill:'var(--id)',fontSize:7,fontFamily:fn,fontWeight:700,text:`${w.toFixed(3)} within`},s);
-    S('rect',{x:lM,y:y+barH+2,width:sc(bL),height:barH,fill:'var(--cy)',fillOpacity:.6,rx:2},s);
-    S('text',{x:lM+sc(bL)+3,y:y+barH*2+1,fill:'var(--cy)',fontSize:7,fontFamily:fn,fontWeight:700,text:`${bL.toFixed(3)} L-btw`},s);
-    S('rect',{x:lM,y:y+barH*2+4,width:sc(bQ),height:barH,fill:'var(--pk)',fillOpacity:.6,rx:2},s);
-    S('text',{x:lM+sc(bQ)+3,y:y+barH*3+3,fill:'var(--pk)',fontSize:7,fontFamily:fn,fontWeight:700,text:`${bQ.toFixed(3)} Q-btw`},s);
+    const wL=A1L[tr].w,bL=A1L[tr].b,wQ=A1Q[tr].w,bQ=A1Q[tr].b;
+    const y=tM+4+i*40;
+    S('text',{x:lM-6,y:y+16,textAnchor:'end',fill:'var(--tx)',fontSize:9,fontFamily:fs,fontWeight:600,text:TL[tr]},s);
+    // Llama within
+    S('rect',{x:lM,y:y,width:sc(wL),height:barH,fill:'var(--id)',fillOpacity:.7,rx:2},s);
+    S('text',{x:lM+sc(wL)+3,y:y+barH-1,fill:'var(--id)',fontSize:6.5,fontFamily:fn,fontWeight:700,text:`${wL.toFixed(3)} L-within`},s);
+    // Llama between
+    S('rect',{x:lM,y:y+barH+gap,width:sc(bL),height:barH,fill:'var(--cy)',fillOpacity:.6,rx:2},s);
+    S('text',{x:lM+sc(bL)+3,y:y+(barH+gap)*1+barH-1,fill:'var(--cy)',fontSize:6.5,fontFamily:fn,fontWeight:700,text:`${bL.toFixed(3)} L-between`},s);
+    // Qwen within
+    S('rect',{x:lM,y:y+(barH+gap)*2,width:sc(wQ),height:barH,fill:'var(--pu)',fillOpacity:.6,rx:2},s);
+    S('text',{x:lM+sc(wQ)+3,y:y+(barH+gap)*2+barH-1,fill:'var(--pu)',fontSize:6.5,fontFamily:fn,fontWeight:700,text:`${wQ.toFixed(3)} Q-within`},s);
+    // Qwen between
+    S('rect',{x:lM,y:y+(barH+gap)*3,width:sc(bQ),height:barH,fill:'var(--pk)',fillOpacity:.6,rx:2},s);
+    S('text',{x:lM+sc(bQ)+3,y:y+(barH+gap)*3+barH-1,fill:'var(--pk)',fontSize:6.5,fontFamily:fn,fontWeight:700,text:`${bQ.toFixed(3)} Q-between`},s);
   });
 }
 
@@ -562,7 +569,7 @@ function buildSignificance(el){
   <div class="grid g2"><div class="box" id="sig-sp-l"></div><div class="box" id="sig-sp-q"></div></div></div>
   ${sec('Within vs Between Persona ρ')}
   <div class="box" id="sig-wb"></div>
-  ${legend([['Within (Llama)','var(--id)'],['Between (Llama)','var(--cy)'],['Between (Qwen)','var(--pk)']])}
+  ${legend([['Within (Llama)','var(--id)'],['Between (Llama)','var(--cy)'],['Within (Qwen)','var(--pu)'],['Between (Qwen)','var(--pk)']])}
   </div>`;
   drawPermHM(document.getElementById('sig-perm-l'),'llama');
   drawPermHM(document.getElementById('sig-perm-q'),'qwen');
