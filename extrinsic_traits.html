@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personality × Model Rank Instability Audit</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050910;--c1:#0c1420;--c2:#101c2e;--bd:#182640;--tx:#c8d2e0;--dm:#48597a;--wh:#eaf0f6;--cy:#38bdf8;--pk:#e879a8;--gn:#34d399;--rd:#ef4444;--am:#fbbf24;--pu:#a78bfa;--or:#fb923c;--id:#818cf8}
+body{background:var(--bg);color:var(--tx);font-family:'Instrument Sans',system-ui,sans-serif;min-height:100vh;padding:20px 16px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto}
+h1{font-size:26px;font-weight:800;color:var(--wh);letter-spacing:-.5px}
+.sub{font-size:12px;color:var(--dm);margin-top:4px;line-height:1.5}
+.sub span{font-weight:600}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--bd);margin:18px 0 20px;overflow-x:auto}
+.tab{padding:11px 20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;color:var(--dm);background:transparent;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.tab:hover{color:var(--tx)}
+.tab.on{color:var(--wh);font-weight:700;background:rgba(129,140,248,.08);border-bottom-color:var(--id)}
+.box{background:var(--c1);border:1px solid var(--bd);border-radius:8px;padding:14px 12px;margin-bottom:12px;overflow-x:auto}
+.box .label{font-size:10px;color:var(--dm);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-family:'IBM Plex Mono',monospace}
+.grid{display:grid;gap:10px}.g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}
+.met{background:var(--c1);border:1px solid var(--bd);border-radius:10px;padding:14px 10px;text-align:center;border-top:3px solid var(--id)}
+.met .v{font-size:26px;font-weight:800;font-family:'IBM Plex Mono',monospace}
+.met .l{font-size:10.5px;font-weight:600;color:var(--tx);margin-top:3px}
+.met .s{font-size:9px;color:var(--dm);margin-top:2px}
+.leg{display:flex;gap:10px;font-size:9.5px;margin-bottom:12px;flex-wrap:wrap}
+.leg .li{display:flex;align-items:center;gap:4px}
+.leg .li .dot{width:10px;height:10px;border-radius:2px}
+.leg .li span{font-weight:600;font-family:'IBM Plex Mono',monospace}
+.call{border-radius:8px;padding:14px 18px;margin-bottom:16px}
+.call .ct{font-size:13px;font-weight:700;margin-bottom:5px}
+.call .cd{font-size:11.5px;color:var(--dm);line-height:1.65}
+.sec{margin-bottom:22px}
+.sec h3{font-size:15px;font-weight:700;color:var(--wh);margin-bottom:4px}
+.sec .desc{font-size:11.5px;color:var(--dm);margin-bottom:12px;line-height:1.5}
+.pane{display:none}.pane.show{display:block}
+.footer{margin-top:32px;padding-top:14px;border-top:1px solid var(--bd);font-size:9px;color:var(--dm);text-align:center;font-family:'IBM Plex Mono',monospace}
+.vol-bar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-left:4px}
+table{border-collapse:collapse;width:100%;font-size:10px}
+th{padding:5px 6px;color:var(--dm);border-bottom:2px solid var(--bd);text-align:left;font-size:9px;font-family:'IBM Plex Mono',monospace}
+td{padding:5px 6px;border-bottom:1px solid var(--bd)}
+svg{display:block}
+@media(max-width:600px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--bd)">
+  <h1>Personality-Driven Rank Instability</h1>
+  <p class="sub">Do system-prompt personalities cause models to change their emotion rankings? · <span style="color:var(--id)">11 models</span> · <span style="color:var(--cy)">7 personalities</span> · <span style="color:var(--pk)">n=100 per cell</span></p>
+  <p class="sub" style="margin-top:6px"><span style="color:var(--dm)">Metrics:</span> Approval &amp; Curiosity (prob_a − prob_b) · Politeness (pref_ab − pref_ba) · Confidence (pref_ab + pref_ba)</p>
+  <p class="sub" style="margin-top:2px"><span style="color:var(--dm)">Method:</span> 5,000 bootstrap resamples of n=100 observations per (model × personality) cell. Rank computed per resample. 95% CI = 2.5th–97.5th percentile of bootstrap rank distribution.</p>
+</div>
+
+<div class="tabs" id="tabs"></div>
+<div id="content"></div>
+
+<div class="footer">Rank Instability Audit · 4 traits · 11 models · 7 personalities · 5,000 bootstrap resamples · n=100 per cell</div>
+</div>
+
+<script>
+const RANK_APPROVAL = {"llama-8b-4b-distill-chat":{"neutral":{"mu":3.02,"lo":1.0,"hi":7.0,"std":1.75},"school":{"mu":2.87,"lo":1.0,"hi":7.0,"std":1.82},"research":{"mu":1.64,"lo":1.0,"hi":5.0,"std":1.05},"news":{"mu":3.08,"lo":1.0,"hi":6.0,"std":1.44},"linkedin":{"mu":2.21,"lo":1.0,"hi":5.0,"std":1.1},"reddit":{"mu":2.15,"lo":1.0,"hi":3.0,"std":0.52},"vlog":{"mu":1.68,"lo":1.0,"hi":2.0,"std":0.47}},"mistral-chat":{"neutral":{"mu":5.32,"lo":2.0,"hi":8.0,"std":1.82},"school":{"mu":4.8,"lo":1.0,"hi":8.0,"std":1.82},"research":{"mu":2.47,"lo":1.0,"hi":5.0,"std":1.25},"news":{"mu":2.04,"lo":1.0,"hi":5.0,"std":1.25},"linkedin":{"mu":1.93,"lo":1.0,"hi":4.0,"std":1.07},"reddit":{"mu":1.06,"lo":1.0,"hi":2.0,"std":0.24},"vlog":{"mu":1.33,"lo":1.0,"hi":2.0,"std":0.47}},"qwen-8b-chat":{"neutral":{"mu":1.35,"lo":1.0,"hi":3.0,"std":0.72},"school":{"mu":2.12,"lo":1.0,"hi":6.0,"std":1.35},"research":{"mu":3.04,"lo":1.0,"hi":6.0,"std":1.32},"news":{"mu":2.46,"lo":1.0,"hi":5.0,"std":1.26},"linkedin":{"mu":3.76,"lo":2.0,"hi":5.0,"std":0.99},"reddit":{"mu":4.29,"lo":3.0,"hi":6.0,"std":0.79},"vlog":{"mu":9.04,"lo":6.0,"hi":11.0,"std":1.51}},"mistral-chat-moe":{"neutral":{"mu":3.91,"lo":1.0,"hi":8.0,"std":1.78},"school":{"mu":6.19,"lo":3.0,"hi":8.0,"std":1.5},"research":{"mu":5.09,"lo":2.0,"hi":7.0,"std":1.35},"news":{"mu":3.41,"lo":1.0,"hi":6.0,"std":1.46},"linkedin":{"mu":2.52,"lo":1.0,"hi":5.0,"std":1.09},"reddit":{"mu":2.91,"lo":2.0,"hi":4.0,"std":0.53},"vlog":{"mu":3.64,"lo":3.0,"hi":6.0,"std":0.81}},"qwen-32b-chat":{"neutral":{"mu":4.19,"lo":2.0,"hi":7.0,"std":1.59},"school":{"mu":3.87,"lo":1.0,"hi":7.0,"std":1.64},"research":{"mu":3.88,"lo":2.0,"hi":6.0,"std":1.25},"news":{"mu":4.94,"lo":2.0,"hi":7.0,"std":1.21},"linkedin":{"mu":4.8,"lo":3.0,"hi":6.0,"std":0.88},"reddit":{"mu":7.52,"lo":6.0,"hi":9.0,"std":0.75},"vlog":{"mu":9.55,"lo":6.0,"hi":11.0,"std":1.37}},"llama-70b-chat":{"neutral":{"mu":6.24,"lo":3.0,"hi":8.0,"std":1.63},"school":{"mu":7.45,"lo":5.0,"hi":8.0,"std":0.93},"research":{"mu":6.5,"lo":4.0,"hi":8.0,"std":1.09},"news":{"mu":5.45,"lo":3.0,"hi":7.0,"std":1.15},"linkedin":{"mu":7.0,"lo":5.0,"hi":8.0,"std":0.8},"reddit":{"mu":5.29,"lo":4.0,"hi":7.0,"std":0.82},"vlog":{"mu":5.73,"lo":3.0,"hi":9.0,"std":1.35}},"llama-8b-chat":{"neutral":{"mu":6.64,"lo":3.0,"hi":8.0,"std":1.53},"school":{"mu":3.5,"lo":1.0,"hi":7.0,"std":1.86},"research":{"mu":7.8,"lo":6.0,"hi":8.0,"std":0.53},"news":{"mu":6.72,"lo":5.0,"hi":8.0,"std":0.82},"linkedin":{"mu":6.26,"lo":5.0,"hi":8.0,"std":0.85},"reddit":{"mu":5.42,"lo":4.0,"hi":7.0,"std":0.81},"vlog":{"mu":7.72,"lo":5.0,"hi":11.0,"std":1.53}},"qwen-moe-chat":{"neutral":{"mu":5.32,"lo":2.0,"hi":8.0,"std":1.7},"school":{"mu":5.18,"lo":2.0,"hi":8.0,"std":1.58},"research":{"mu":5.6,"lo":3.0,"hi":8.0,"std":1.21},"news":{"mu":7.93,"lo":7.0,"hi":8.0,"std":0.33},"linkedin":{"mu":7.53,"lo":6.0,"hi":8.0,"std":0.7},"reddit":{"mu":7.59,"lo":6.0,"hi":9.0,"std":0.77},"vlog":{"mu":9.49,"lo":6.0,"hi":11.0,"std":1.49}},"mistral":{"neutral":{"mu":9.85,"lo":9.0,"hi":11.0,"std":0.65},"school":{"mu":9.15,"lo":9.0,"hi":10.0,"std":0.42},"research":{"mu":9.17,"lo":9.0,"hi":10.0,"std":0.46},"news":{"mu":9.67,"lo":9.0,"hi":10.0,"std":0.53},"linkedin":{"mu":9.1,"lo":9.0,"hi":10.0,"std":0.35},"reddit":{"mu":9.53,"lo":7.0,"hi":11.0,"std":0.94},"vlog":{"mu":4.14,"lo":3.0,"hi":7.0,"std":1.27}},"qwen-moe-base":{"neutral":{"mu":9.38,"lo":9.0,"hi":11.0,"std":0.57},"school":{"mu":10.14,"lo":9.0,"hi":11.0,"std":0.57},"research":{"mu":10.11,"lo":9.0,"hi":11.0,"std":0.61},"news":{"mu":9.35,"lo":9.0,"hi":10.0,"std":0.52},"linkedin":{"mu":9.93,"lo":9.0,"hi":11.0,"std":0.39},"reddit":{"mu":9.66,"lo":8.0,"hi":11.0,"std":0.86},"vlog":{"mu":5.95,"lo":3.0,"hi":10.0,"std":1.8}},"llama-8b-base":{"neutral":{"mu":10.77,"lo":9.0,"hi":11.0,"std":0.49},"school":{"mu":10.7,"lo":9.0,"hi":11.0,"std":0.51},"research":{"mu":10.7,"lo":9.0,"hi":11.0,"std":0.51},"news":{"mu":10.97,"lo":10.0,"hi":11.0,"std":0.2},"linkedin":{"mu":10.95,"lo":10.0,"hi":11.0,"std":0.21},"reddit":{"mu":10.58,"lo":9.0,"hi":11.0,"std":0.66},"vlog":{"mu":7.74,"lo":4.0,"hi":11.0,"std":1.96}}};
+const PAIRS_APPROVAL = [{"m":"mistral","uc1":"neutral","uc2":"vlog","mu1":9.85,"mu2":4.14,"delta":5.7},{"m":"mistral","uc1":"school","uc2":"vlog","mu1":9.15,"mu2":4.14,"delta":5.0},{"m":"mistral","uc1":"research","uc2":"vlog","mu1":9.17,"mu2":4.14,"delta":5.0},{"m":"mistral","uc1":"news","uc2":"vlog","mu1":9.67,"mu2":4.14,"delta":5.5},{"m":"mistral","uc1":"linkedin","uc2":"vlog","mu1":9.1,"mu2":4.14,"delta":5.0},{"m":"qwen-8b-chat","uc1":"neutral","uc2":"vlog","mu1":1.35,"mu2":9.04,"delta":-7.7},{"m":"qwen-8b-chat","uc1":"news","uc2":"vlog","mu1":2.46,"mu2":9.04,"delta":-6.6},{"m":"qwen-8b-chat","uc1":"linkedin","uc2":"vlog","mu1":3.76,"mu2":9.04,"delta":-5.3}];
+const MODELS_APPROVAL = ["llama-8b-4b-distill-chat","mistral-chat","qwen-8b-chat","mistral-chat-moe","qwen-32b-chat","llama-70b-chat","llama-8b-chat","qwen-moe-chat","mistral","qwen-moe-base","llama-8b-base"];
+const VOL_APPROVAL = {"llama-8b-4b-distill-chat":0.57,"mistral-chat":1.55,"qwen-8b-chat":2.36,"mistral-chat-moe":1.19,"qwen-32b-chat":2.01,"llama-70b-chat":0.75,"llama-8b-chat":1.37,"qwen-moe-chat":1.5,"mistral":1.86,"qwen-moe-base":1.37,"llama-8b-base":1.07};
+
+const RANK_CURIOSITY = {"llama-8b-base":{"neutral":{"mu":1.21,"lo":1.0,"hi":2.0,"std":0.43},"school":{"mu":1.52,"lo":1.0,"hi":3.0,"std":0.62},"research":{"mu":1.27,"lo":1.0,"hi":3.0,"std":0.53},"news":{"mu":1.04,"lo":1.0,"hi":2.0,"std":0.22},"linkedin":{"mu":1.84,"lo":1.0,"hi":3.0,"std":0.46},"reddit":{"mu":2.96,"lo":1.0,"hi":5.0,"std":1.0},"vlog":{"mu":1.8,"lo":1.0,"hi":4.0,"std":0.92}},"qwen-moe-base":{"neutral":{"mu":2.02,"lo":1.0,"hi":3.0,"std":0.62},"school":{"mu":1.72,"lo":1.0,"hi":3.0,"std":0.67},"research":{"mu":2.07,"lo":1.0,"hi":3.0,"std":0.64},"news":{"mu":2.53,"lo":2.0,"hi":3.0,"std":0.53},"linkedin":{"mu":1.2,"lo":1.0,"hi":2.0,"std":0.42},"reddit":{"mu":1.26,"lo":1.0,"hi":3.0,"std":0.57},"vlog":{"mu":1.63,"lo":1.0,"hi":4.0,"std":0.89}},"mistral":{"neutral":{"mu":2.78,"lo":2.0,"hi":3.0,"std":0.46},"school":{"mu":2.76,"lo":1.0,"hi":3.0,"std":0.53},"research":{"mu":2.67,"lo":1.0,"hi":3.0,"std":0.57},"news":{"mu":2.43,"lo":2.0,"hi":3.0,"std":0.54},"linkedin":{"mu":3.04,"lo":2.0,"hi":4.0,"std":0.42},"reddit":{"mu":3.05,"lo":1.0,"hi":5.0,"std":1.12},"vlog":{"mu":5.76,"lo":2.0,"hi":9.0,"std":1.87}},"qwen-32b-chat":{"neutral":{"mu":7.46,"lo":4.0,"hi":11.0,"std":2.2},"school":{"mu":6.15,"lo":4.0,"hi":11.0,"std":2.03},"research":{"mu":8.44,"lo":5.0,"hi":11.0,"std":1.98},"news":{"mu":8.83,"lo":5.0,"hi":11.0,"std":1.85},"linkedin":{"mu":5.14,"lo":4.0,"hi":8.0,"std":1.22},"reddit":{"mu":2.88,"lo":1.0,"hi":4.0,"std":0.9},"vlog":{"mu":4.1,"lo":2.0,"hi":7.0,"std":1.39}},"llama-70b-chat":{"neutral":{"mu":5.46,"lo":4.0,"hi":10.0,"std":1.84},"school":{"mu":9.21,"lo":5.0,"hi":11.0,"std":1.65},"research":{"mu":8.99,"lo":5.0,"hi":11.0,"std":1.78},"news":{"mu":5.2,"lo":4.0,"hi":10.0,"std":1.67},"linkedin":{"mu":5.66,"lo":4.0,"hi":8.0,"std":1.28},"reddit":{"mu":7.17,"lo":6.0,"hi":9.0,"std":0.71},"vlog":{"mu":5.72,"lo":3.0,"hi":8.0,"std":1.5}},"llama-8b-4b-distill-chat":{"neutral":{"mu":6.73,"lo":4.0,"hi":11.0,"std":2.32},"school":{"mu":6.11,"lo":4.0,"hi":11.0,"std":2.09},"research":{"mu":4.19,"lo":4.0,"hi":6.0,"std":0.69},"news":{"mu":6.26,"lo":4.0,"hi":11.0,"std":2.13},"linkedin":{"mu":6.7,"lo":4.0,"hi":10.0,"std":1.81},"reddit":{"mu":8.77,"lo":7.0,"hi":10.0,"std":0.63},"vlog":{"mu":8.95,"lo":8.0,"hi":10.0,"std":0.51}},"qwen-moe-chat":{"neutral":{"mu":8.45,"lo":5.0,"hi":11.0,"std":1.9},"school":{"mu":6.62,"lo":4.0,"hi":11.0,"std":2.13},"research":{"mu":7.86,"lo":5.0,"hi":11.0,"std":1.74},"news":{"mu":6.63,"lo":4.0,"hi":11.0,"std":1.91},"linkedin":{"mu":6.12,"lo":4.0,"hi":9.0,"std":1.37},"reddit":{"mu":5.9,"lo":5.0,"hi":7.0,"std":0.64},"vlog":{"mu":6.33,"lo":3.0,"hi":8.0,"std":1.46}},"qwen-8b-chat":{"neutral":{"mu":7.1,"lo":4.0,"hi":11.0,"std":2.1},"school":{"mu":8.94,"lo":5.0,"hi":11.0,"std":1.76},"research":{"mu":7.66,"lo":5.0,"hi":11.0,"std":1.94},"news":{"mu":7.77,"lo":4.0,"hi":11.0,"std":1.89},"linkedin":{"mu":8.86,"lo":7.0,"hi":10.0,"std":0.65},"reddit":{"mu":5.13,"lo":4.0,"hi":6.0,"std":0.67},"vlog":{"mu":3.98,"lo":2.0,"hi":7.0,"std":1.4}},"llama-8b-chat":{"neutral":{"mu":8.69,"lo":5.0,"hi":11.0,"std":1.88},"school":{"mu":7.3,"lo":4.0,"hi":11.0,"std":2.08},"research":{"mu":6.76,"lo":4.0,"hi":11.0,"std":1.78},"news":{"mu":8.4,"lo":4.0,"hi":11.0,"std":2.19},"linkedin":{"mu":6.62,"lo":4.0,"hi":9.0,"std":1.4},"reddit":{"mu":7.98,"lo":6.0,"hi":9.0,"std":0.77},"vlog":{"mu":6.81,"lo":4.0,"hi":9.0,"std":1.36}},"mistral-chat-moe":{"neutral":{"mu":7.47,"lo":4.0,"hi":11.0,"std":2.17},"school":{"mu":8.38,"lo":5.0,"hi":11.0,"std":1.96},"research":{"mu":9.03,"lo":5.0,"hi":11.0,"std":1.71},"news":{"mu":7.96,"lo":4.0,"hi":11.0,"std":1.9},"linkedin":{"mu":9.92,"lo":9.0,"hi":11.0,"std":0.56},"reddit":{"mu":9.91,"lo":9.0,"hi":10.0,"std":0.3},"vlog":{"mu":9.93,"lo":9.0,"hi":10.0,"std":0.3}},"mistral-chat":{"neutral":{"mu":8.64,"lo":5.0,"hi":11.0,"std":1.91},"school":{"mu":7.29,"lo":4.0,"hi":11.0,"std":2.13},"research":{"mu":7.06,"lo":4.0,"hi":11.0,"std":2.07},"news":{"mu":8.95,"lo":5.0,"hi":11.0,"std":1.77},"linkedin":{"mu":10.9,"lo":10.0,"hi":11.0,"std":0.31},"reddit":{"mu":11.0,"lo":11.0,"hi":11.0,"std":0.0},"vlog":{"mu":10.99,"lo":11.0,"hi":11.0,"std":0.09}}};
+const PAIRS_CURIOSITY = [{"m":"llama-8b-4b-distill-chat","uc1":"research","uc2":"reddit","mu1":4.19,"mu2":8.77,"delta":-4.6},{"m":"llama-8b-4b-distill-chat","uc1":"research","uc2":"vlog","mu1":4.19,"mu2":8.95,"delta":-4.8},{"m":"qwen-32b-chat","uc1":"research","uc2":"reddit","mu1":8.44,"mu2":2.88,"delta":5.6},{"m":"qwen-32b-chat","uc1":"news","uc2":"reddit","mu1":8.83,"mu2":2.88,"delta":6.0},{"m":"qwen-8b-chat","uc1":"linkedin","uc2":"reddit","mu1":8.86,"mu2":5.13,"delta":3.7}];
+const MODELS_CURIOSITY = ["llama-8b-base","qwen-moe-base","mistral","qwen-32b-chat","llama-70b-chat","llama-8b-4b-distill-chat","qwen-moe-chat","qwen-8b-chat","llama-8b-chat","mistral-chat-moe","mistral-chat"];
+const VOL_CURIOSITY = {"llama-8b-base":0.6,"qwen-moe-base":0.44,"mistral":1.06,"qwen-32b-chat":2.07,"llama-70b-chat":1.58,"llama-8b-4b-distill-chat":1.52,"qwen-moe-chat":0.88,"qwen-8b-chat":1.73,"llama-8b-chat":0.78,"mistral-chat-moe":0.95,"mistral-chat":1.6};
+
+const VAL_APPROVAL = {"mistral-chat":{"neutral":{"mu":0.01256,"lo":-0.00447,"hi":0.02959},"school":{"mu":0.01601,"lo":-0.00039,"hi":0.03241},"research":{"mu":0.00218,"lo":-0.01334,"hi":0.01769},"news":{"mu":0.00925,"lo":-0.0096,"hi":0.02809},"linkedin":{"mu":0.0254,"lo":0.00612,"hi":0.04467},"reddit":{"mu":0.02096,"lo":0.00202,"hi":0.03991},"vlog":{"mu":-0.01438,"lo":-0.03216,"hi":0.00339}},"llama-8b-4b-distill-chat":{"neutral":{"mu":0.02416,"lo":0.00372,"hi":0.0446},"school":{"mu":0.02545,"lo":0.00553,"hi":0.04536},"research":{"mu":0.0096,"lo":-0.01007,"hi":0.02926},"news":{"mu":0.00251,"lo":-0.01414,"hi":0.01917},"linkedin":{"mu":0.02289,"lo":0.00492,"hi":0.04086},"reddit":{"mu":-0.00045,"lo":-0.01893,"hi":0.01803},"vlog":{"mu":-0.01988,"lo":-0.03618,"hi":-0.00358}},"mistral-chat-moe":{"neutral":{"mu":0.01898,"lo":0.00211,"hi":0.03584},"school":{"mu":0.00978,"lo":-0.00502,"hi":0.02458},"research":{"mu":-0.01129,"lo":-0.02528,"hi":0.00271},"news":{"mu":0.00062,"lo":-0.01596,"hi":0.01721},"linkedin":{"mu":0.02049,"lo":0.00379,"hi":0.03719},"reddit":{"mu":-0.01127,"lo":-0.02629,"hi":0.00375},"vlog":{"mu":-0.05322,"lo":-0.06711,"hi":-0.03932}},"qwen-8b-chat":{"neutral":{"mu":0.03567,"lo":0.02051,"hi":0.05083},"school":{"mu":0.02881,"lo":0.01336,"hi":0.04426},"research":{"mu":-0.00114,"lo":-0.01524,"hi":0.01295},"news":{"mu":0.0061,"lo":-0.00908,"hi":0.02129},"linkedin":{"mu":0.01169,"lo":-0.0022,"hi":0.02559},"reddit":{"mu":-0.02752,"lo":-0.04492,"hi":-0.01013},"vlog":{"mu":-0.08342,"lo":-0.09788,"hi":-0.06896}},"qwen-32b-chat":{"neutral":{"mu":0.01733,"lo":0.00397,"hi":0.03068},"school":{"mu":0.02009,"lo":0.00675,"hi":0.03343},"research":{"mu":-0.00555,"lo":-0.01711,"hi":0.00601},"news":{"mu":-0.00768,"lo":-0.02142,"hi":0.00606},"linkedin":{"mu":0.00366,"lo":-0.01112,"hi":0.01845},"reddit":{"mu":-0.05857,"lo":-0.07427,"hi":-0.04287},"vlog":{"mu":-0.0857,"lo":-0.09951,"hi":-0.07189}},"llama-70b-chat":{"neutral":{"mu":0.00826,"lo":-0.00814,"hi":0.02465},"school":{"mu":0.00272,"lo":-0.01122,"hi":0.01666},"research":{"mu":-0.01967,"lo":-0.03441,"hi":-0.00493},"news":{"mu":-0.01107,"lo":-0.0256,"hi":0.00345},"linkedin":{"mu":-0.0151,"lo":-0.02962,"hi":-0.00057},"reddit":{"mu":-0.03655,"lo":-0.0524,"hi":-0.0207},"vlog":{"mu":-0.06725,"lo":-0.08143,"hi":-0.05307}},"llama-8b-chat":{"neutral":{"mu":0.00615,"lo":-0.01033,"hi":0.02263},"school":{"mu":0.02222,"lo":0.00426,"hi":0.04017},"research":{"mu":-0.03108,"lo":-0.04567,"hi":-0.01648},"news":{"mu":-0.02108,"lo":-0.03761,"hi":-0.00455},"linkedin":{"mu":-0.00864,"lo":-0.02414,"hi":0.00685},"reddit":{"mu":-0.03814,"lo":-0.05364,"hi":-0.02264},"vlog":{"mu":-0.07706,"lo":-0.09087,"hi":-0.06325}},"qwen-moe-chat":{"neutral":{"mu":0.01255,"lo":-0.0018,"hi":0.02689},"school":{"mu":0.01459,"lo":0.00178,"hi":0.02739},"research":{"mu":-0.014,"lo":-0.02721,"hi":-0.00079},"news":{"mu":-0.03668,"lo":-0.05063,"hi":-0.02273},"linkedin":{"mu":-0.01998,"lo":-0.03446,"hi":-0.0055},"reddit":{"mu":-0.05934,"lo":-0.07549,"hi":-0.0432},"vlog":{"mu":-0.08571,"lo":-0.10235,"hi":-0.06907}},"mistral":{"neutral":{"mu":-0.059,"lo":-0.08034,"hi":-0.03766},"school":{"mu":-0.04603,"lo":-0.07071,"hi":-0.02136},"research":{"mu":-0.06181,"lo":-0.0844,"hi":-0.03922},"news":{"mu":-0.06877,"lo":-0.08831,"hi":-0.04924},"linkedin":{"mu":-0.05013,"lo":-0.07036,"hi":-0.0299},"reddit":{"mu":-0.07926,"lo":-0.10194,"hi":-0.05658},"vlog":{"mu":-0.05593,"lo":-0.0768,"hi":-0.03506}},"qwen-moe-base":{"neutral":{"mu":-0.05188,"lo":-0.07275,"hi":-0.03102},"school":{"mu":-0.06557,"lo":-0.08461,"hi":-0.04652},"research":{"mu":-0.07835,"lo":-0.10017,"hi":-0.05654},"news":{"mu":-0.06359,"lo":-0.08299,"hi":-0.0442},"linkedin":{"mu":-0.06771,"lo":-0.08795,"hi":-0.04747},"reddit":{"mu":-0.08082,"lo":-0.10092,"hi":-0.06072},"vlog":{"mu":-0.06783,"lo":-0.08797,"hi":-0.04768}},"llama-8b-base":{"neutral":{"mu":-0.07429,"lo":-0.09559,"hi":-0.053},"school":{"mu":-0.07456,"lo":-0.095,"hi":-0.05412},"research":{"mu":-0.08833,"lo":-0.109,"hi":-0.06766},"news":{"mu":-0.09682,"lo":-0.11843,"hi":-0.0752},"linkedin":{"mu":-0.09235,"lo":-0.11243,"hi":-0.07226},"reddit":{"mu":-0.09194,"lo":-0.11046,"hi":-0.07342},"vlog":{"mu":-0.07725,"lo":-0.09771,"hi":-0.05679}}};
+const VAL_CURIOSITY = {"llama-8b-base":{"neutral":{"mu":0.03176,"lo":0.02045,"hi":0.04308},"school":{"mu":0.04239,"lo":0.03061,"hi":0.05417},"research":{"mu":0.05088,"lo":0.03586,"hi":0.0659},"news":{"mu":0.0503,"lo":0.03594,"hi":0.06465},"linkedin":{"mu":0.04222,"lo":0.02943,"hi":0.05501},"reddit":{"mu":0.05201,"lo":0.03626,"hi":0.06777},"vlog":{"mu":0.04826,"lo":0.03471,"hi":0.06182}},"qwen-moe-base":{"neutral":{"mu":0.02345,"lo":0.00997,"hi":0.03693},"school":{"mu":0.04079,"lo":0.02803,"hi":0.05356},"research":{"mu":0.04174,"lo":0.02777,"hi":0.05571},"news":{"mu":0.03189,"lo":0.01993,"hi":0.04385},"linkedin":{"mu":0.05025,"lo":0.0358,"hi":0.06471},"reddit":{"mu":0.06749,"lo":0.05198,"hi":0.083},"vlog":{"mu":0.05034,"lo":0.035,"hi":0.06567}},"mistral":{"neutral":{"mu":0.01684,"lo":0.00688,"hi":0.02681},"school":{"mu":0.03134,"lo":0.0189,"hi":0.04378},"research":{"mu":0.035,"lo":0.01924,"hi":0.05076},"news":{"mu":0.03274,"lo":0.02111,"hi":0.04438},"linkedin":{"mu":0.02729,"lo":0.01671,"hi":0.03787},"reddit":{"mu":0.0516,"lo":0.03213,"hi":0.07106},"vlog":{"mu":0.03214,"lo":0.01952,"hi":0.04475}},"qwen-32b-chat":{"neutral":{"mu":-0.0013,"lo":-0.0049,"hi":0.0023},"school":{"mu":0.00014,"lo":-0.00368,"hi":0.00396},"research":{"mu":-0.00204,"lo":-0.00533,"hi":0.00125},"news":{"mu":0.00087,"lo":-0.00283,"hi":0.00457},"linkedin":{"mu":0.0152,"lo":0.00853,"hi":0.02188},"reddit":{"mu":0.05256,"lo":0.03968,"hi":0.06545},"vlog":{"mu":0.03677,"lo":0.02826,"hi":0.04528}},"qwen-8b-chat":{"neutral":{"mu":-0.00098,"lo":-0.00442,"hi":0.00245},"school":{"mu":-0.0023,"lo":-0.0055,"hi":0.00089},"research":{"mu":-0.00142,"lo":-0.0043,"hi":0.00146},"news":{"mu":0.00195,"lo":-0.00137,"hi":0.00526},"linkedin":{"mu":0.00562,"lo":0.0021,"hi":0.00913},"reddit":{"mu":0.03491,"lo":0.02356,"hi":0.04626},"vlog":{"mu":0.03705,"lo":0.02811,"hi":0.04598}},"qwen-moe-chat":{"neutral":{"mu":-0.00205,"lo":-0.00514,"hi":0.00104},"school":{"mu":-0.00032,"lo":-0.00424,"hi":0.0036},"research":{"mu":-0.00161,"lo":-0.00395,"hi":0.00074},"news":{"mu":0.00309,"lo":-0.00083,"hi":0.00701},"linkedin":{"mu":0.01274,"lo":0.00599,"hi":0.01948},"reddit":{"mu":0.02924,"lo":0.02069,"hi":0.03779},"vlog":{"mu":0.03037,"lo":0.02161,"hi":0.03913}},"llama-70b-chat":{"neutral":{"mu":0.0007,"lo":-0.00329,"hi":0.0047},"school":{"mu":-0.00255,"lo":-0.00562,"hi":0.00051},"research":{"mu":-0.00253,"lo":-0.00569,"hi":0.00063},"news":{"mu":0.00518,"lo":-0.00012,"hi":0.01048},"linkedin":{"mu":0.01382,"lo":0.0076,"hi":0.02004},"reddit":{"mu":0.02223,"lo":0.0151,"hi":0.02936},"vlog":{"mu":0.0321,"lo":0.0237,"hi":0.04049}},"llama-8b-chat":{"neutral":{"mu":-0.00228,"lo":-0.00537,"hi":0.00082},"school":{"mu":-0.00095,"lo":-0.00455,"hi":0.00265},"research":{"mu":-0.00079,"lo":-0.00336,"hi":0.00178},"news":{"mu":0.00131,"lo":-0.0034,"hi":0.00603},"linkedin":{"mu":0.01152,"lo":0.00448,"hi":0.01856},"reddit":{"mu":0.01867,"lo":0.01112,"hi":0.02622},"vlog":{"mu":0.02888,"lo":0.02028,"hi":0.03747}},"llama-8b-4b-distill-chat":{"neutral":{"mu":-0.00046,"lo":-0.005,"hi":0.00408},"school":{"mu":0.00025,"lo":-0.00397,"hi":0.00448},"research":{"mu":0.00338,"lo":-0.00116,"hi":0.00792},"news":{"mu":0.00375,"lo":-0.00189,"hi":0.00939},"linkedin":{"mu":0.01149,"lo":0.00029,"hi":0.0227},"reddit":{"mu":0.01497,"lo":0.00862,"hi":0.02131},"vlog":{"mu":0.01968,"lo":0.01258,"hi":0.02678}},"mistral-chat-moe":{"neutral":{"mu":-0.0013,"lo":-0.00488,"hi":0.00229},"school":{"mu":-0.00187,"lo":-0.00525,"hi":0.00151},"research":{"mu":-0.0025,"lo":-0.00533,"hi":0.00032},"news":{"mu":0.00173,"lo":-0.00163,"hi":0.00509},"linkedin":{"mu":0.00253,"lo":-0.00136,"hi":0.00642},"reddit":{"mu":0.00914,"lo":0.00419,"hi":0.01408},"vlog":{"mu":0.01338,"lo":0.00766,"hi":0.01909}},"mistral-chat":{"neutral":{"mu":-0.00225,"lo":-0.00546,"hi":0.00096},"school":{"mu":-0.00091,"lo":-0.00457,"hi":0.00274},"research":{"mu":-0.00094,"lo":-0.00452,"hi":0.00263},"news":{"mu":0.00078,"lo":-0.00265,"hi":0.00421},"linkedin":{"mu":-0.00079,"lo":-0.00416,"hi":0.00258},"reddit":{"mu":-0.00083,"lo":-0.00418,"hi":0.00251},"vlog":{"mu":0.0046,"lo":0.00005,"hi":0.00916}}};
+
+const RANK_POLITENESS = {"llama-70b-chat":{"neutral":{"mu":3.06,"lo":1.0,"hi":6.0,"std":1.59},"school":{"mu":3.89,"lo":1.0,"hi":6.0,"std":1.41},"research":{"mu":2.33,"lo":1.0,"hi":5.0,"std":1.32},"news":{"mu":3.29,"lo":1.0,"hi":5.0,"std":1.08},"linkedin":{"mu":1.08,"lo":1.0,"hi":2.0,"std":0.31},"reddit":{"mu":3.39,"lo":2.0,"hi":4.0,"std":0.78},"vlog":{"mu":1.73,"lo":1.0,"hi":4.0,"std":0.79}},"qwen-32b-chat":{"neutral":{"mu":2.97,"lo":1.0,"hi":6.0,"std":1.54},"school":{"mu":2.94,"lo":1.0,"hi":6.0,"std":1.36},"research":{"mu":3.83,"lo":1.0,"hi":6.0,"std":1.41},"news":{"mu":3.76,"lo":2.0,"hi":5.0,"std":1.06},"linkedin":{"mu":2.4,"lo":1.0,"hi":4.0,"std":0.67},"reddit":{"mu":1.84,"lo":1.0,"hi":4.0,"std":0.8},"vlog":{"mu":4.33,"lo":2.0,"hi":7.0,"std":1.19}},"mistral-chat-moe":{"neutral":{"mu":4.83,"lo":1.0,"hi":7.0,"std":1.57},"school":{"mu":4.12,"lo":1.0,"hi":6.0,"std":1.36},"research":{"mu":3.19,"lo":1.0,"hi":6.0,"std":1.5},"news":{"mu":2.36,"lo":1.0,"hi":5.0,"std":0.96},"linkedin":{"mu":6.67,"lo":5.0,"hi":7.0,"std":0.59},"reddit":{"mu":1.65,"lo":1.0,"hi":4.0,"std":0.84},"vlog":{"mu":1.6,"lo":1.0,"hi":3.0,"std":0.72}},"qwen-8b-chat":{"neutral":{"mu":2.43,"lo":1.0,"hi":6.0,"std":1.45},"school":{"mu":2.61,"lo":1.0,"hi":5.0,"std":1.31},"research":{"mu":4.75,"lo":2.0,"hi":7.0,"std":1.37},"news":{"mu":4.44,"lo":2.0,"hi":6.0,"std":0.98},"linkedin":{"mu":4.93,"lo":4.0,"hi":7.0,"std":0.81},"reddit":{"mu":5.08,"lo":5.0,"hi":6.0,"std":0.32},"vlog":{"mu":3.41,"lo":1.0,"hi":6.0,"std":1.11}},"qwen-moe-chat":{"neutral":{"mu":3.0,"lo":1.0,"hi":6.0,"std":1.49},"school":{"mu":1.89,"lo":1.0,"hi":5.0,"std":1.12},"research":{"mu":5.12,"lo":2.0,"hi":7.0,"std":1.3},"news":{"mu":1.27,"lo":1.0,"hi":3.0,"std":0.58},"linkedin":{"mu":5.95,"lo":4.0,"hi":7.0,"std":0.79},"reddit":{"mu":6.06,"lo":5.0,"hi":7.0,"std":0.44},"vlog":{"mu":5.75,"lo":3.0,"hi":7.0,"std":1.07}},"llama-8b-chat":{"neutral":{"mu":5.4,"lo":2.0,"hi":8.0,"std":1.46},"school":{"mu":6.94,"lo":5.0,"hi":8.0,"std":0.92},"research":{"mu":2.02,"lo":1.0,"hi":5.0,"std":1.17},"news":{"mu":6.71,"lo":5.0,"hi":8.0,"std":0.91},"linkedin":{"mu":2.71,"lo":2.0,"hi":4.0,"std":0.69},"reddit":{"mu":3.12,"lo":1.0,"hi":4.0,"std":0.87},"vlog":{"mu":4.96,"lo":2.0,"hi":7.0,"std":1.33}},"llama-8b-4b-distill-chat":{"neutral":{"mu":6.56,"lo":4.0,"hi":8.0,"std":1.11},"school":{"mu":7.47,"lo":6.0,"hi":8.0,"std":0.74},"research":{"mu":6.75,"lo":5.0,"hi":7.0,"std":0.61},"news":{"mu":7.04,"lo":6.0,"hi":8.0,"std":0.84},"linkedin":{"mu":4.27,"lo":3.0,"hi":6.0,"std":0.85},"reddit":{"mu":6.86,"lo":6.0,"hi":7.0,"std":0.37},"vlog":{"mu":6.22,"lo":4.0,"hi":7.0,"std":1.03}},"mistral-chat":{"neutral":{"mu":7.74,"lo":6.0,"hi":8.0,"std":0.56},"school":{"mu":6.14,"lo":4.0,"hi":8.0,"std":1.07},"research":{"mu":7.99,"lo":8.0,"hi":8.0,"std":0.09},"news":{"mu":7.12,"lo":6.0,"hi":8.0,"std":0.86},"linkedin":{"mu":8.0,"lo":8.0,"hi":8.0,"std":0.01},"reddit":{"mu":8.0,"lo":8.0,"hi":8.0,"std":0.0},"vlog":{"mu":7.99,"lo":8.0,"hi":8.0,"std":0.1}},"mistral":{"neutral":{"mu":9.22,"lo":9.0,"hi":10.0,"std":0.42},"school":{"mu":10.21,"lo":9.0,"hi":11.0,"std":0.65},"research":{"mu":9.73,"lo":9.0,"hi":11.0,"std":0.55},"news":{"mu":9.41,"lo":9.0,"hi":10.0,"std":0.53},"linkedin":{"mu":9.08,"lo":9.0,"hi":10.0,"std":0.31},"reddit":{"mu":10.58,"lo":9.0,"hi":11.0,"std":0.59},"vlog":{"mu":9.62,"lo":9.0,"hi":11.0,"std":0.6}},"llama-8b-base":{"neutral":{"mu":9.8,"lo":9.0,"hi":10.0,"std":0.44},"school":{"mu":9.26,"lo":9.0,"hi":11.0,"std":0.55},"research":{"mu":9.34,"lo":9.0,"hi":10.0,"std":0.51},"news":{"mu":9.69,"lo":9.0,"hi":11.0,"std":0.6},"linkedin":{"mu":10.43,"lo":9.0,"hi":11.0,"std":0.57},"reddit":{"mu":10.26,"lo":9.0,"hi":11.0,"std":0.6},"vlog":{"mu":10.9,"lo":10.0,"hi":11.0,"std":0.32}},"qwen-moe-base":{"neutral":{"mu":10.98,"lo":11.0,"hi":11.0,"std":0.14},"school":{"mu":10.53,"lo":9.0,"hi":11.0,"std":0.64},"research":{"mu":10.93,"lo":10.0,"hi":11.0,"std":0.27},"news":{"mu":10.9,"lo":10.0,"hi":11.0,"std":0.33},"linkedin":{"mu":10.49,"lo":9.0,"hi":11.0,"std":0.56},"reddit":{"mu":9.17,"lo":9.0,"hi":11.0,"std":0.44},"vlog":{"mu":9.48,"lo":9.0,"hi":11.0,"std":0.56}}};
+const PAIRS_POLITENESS = [{"m":"llama-8b-chat","uc1":"school","uc2":"linkedin","mu1":6.94,"mu2":2.71,"delta":4.2},{"m":"llama-8b-chat","uc1":"school","uc2":"reddit","mu1":6.94,"mu2":3.12,"delta":3.8},{"m":"llama-8b-chat","uc1":"news","uc2":"linkedin","mu1":6.71,"mu2":2.71,"delta":4.0},{"m":"llama-8b-chat","uc1":"news","uc2":"reddit","mu1":6.71,"mu2":3.12,"delta":3.6},{"m":"mistral-chat-moe","uc1":"linkedin","uc2":"reddit","mu1":6.67,"mu2":1.65,"delta":5.0},{"m":"mistral-chat-moe","uc1":"linkedin","uc2":"vlog","mu1":6.67,"mu2":1.6,"delta":5.1},{"m":"qwen-moe-chat","uc1":"news","uc2":"linkedin","mu1":1.27,"mu2":5.95,"delta":-4.7},{"m":"qwen-moe-chat","uc1":"news","uc2":"reddit","mu1":1.27,"mu2":6.06,"delta":-4.8}];
+const MODELS_POLITENESS = ["llama-70b-chat","qwen-32b-chat","mistral-chat-moe","qwen-8b-chat","qwen-moe-chat","llama-8b-chat","llama-8b-4b-distill-chat","mistral-chat","mistral","llama-8b-base","qwen-moe-base"];
+const VOL_POLITENESS = {"llama-70b-chat":0.93,"qwen-32b-chat":0.81,"mistral-chat-moe":1.72,"qwen-8b-chat":1.04,"qwen-moe-chat":1.89,"llama-8b-chat":1.82,"llama-8b-4b-distill-chat":0.96,"mistral-chat":0.65,"mistral":0.5,"llama-8b-base":0.56,"qwen-moe-base":0.68};
+const VAL_POLITENESS = {"llama-70b-chat":{"neutral":{"mu":-0.64,"lo":-0.9683,"hi":-0.3117},"school":{"mu":-0.44,"lo":-0.7764,"hi":-0.1036},"research":{"mu":-0.16,"lo":-0.5062,"hi":0.1862},"news":{"mu":-0.26,"lo":-0.6107,"hi":0.0907},"linkedin":{"mu":1.64,"lo":1.4415,"hi":1.8385},"reddit":{"mu":1.4,"lo":1.1709,"hi":1.6291},"vlog":{"mu":1.66,"lo":1.4903,"hi":1.8297}},"qwen-32b-chat":{"neutral":{"mu":-0.62,"lo":-0.9325,"hi":-0.3075},"school":{"mu":-0.32,"lo":-0.6475,"hi":0.0075},"research":{"mu":-0.32,"lo":-0.6275,"hi":-0.0125},"news":{"mu":-0.32,"lo":-0.671,"hi":0.031},"linkedin":{"mu":1.4,"lo":1.164,"hi":1.636},"reddit":{"mu":1.6,"lo":1.4216,"hi":1.7784},"vlog":{"mu":1.44,"lo":1.236,"hi":1.644}},"mistral-chat-moe":{"neutral":{"mu":-0.8,"lo":-1.1037,"hi":-0.4963},"school":{"mu":-0.46,"lo":-0.7682,"hi":-0.1518},"research":{"mu":-0.26,"lo":-0.6015,"hi":0.0815},"news":{"mu":-0.1,"lo":-0.4448,"hi":0.2448},"linkedin":{"mu":0.64,"lo":0.3215,"hi":0.9585},"reddit":{"mu":1.62,"lo":1.4113,"hi":1.8287},"vlog":{"mu":1.68,"lo":1.5233,"hi":1.8367}},"qwen-8b-chat":{"neutral":{"mu":-0.56,"lo":-0.8844,"hi":-0.2356},"school":{"mu":-0.28,"lo":-0.5992,"hi":0.0392},"research":{"mu":-0.42,"lo":-0.7355,"hi":-0.1045},"news":{"mu":-0.42,"lo":-0.7551,"hi":-0.0849},"linkedin":{"mu":0.98,"lo":0.6842,"hi":1.2758},"reddit":{"mu":0.94,"lo":0.6391,"hi":1.2409},"vlog":{"mu":1.52,"lo":1.3236,"hi":1.7164}},"qwen-moe-chat":{"neutral":{"mu":-0.62,"lo":-0.9221,"hi":-0.3179},"school":{"mu":-0.18,"lo":-0.5235,"hi":0.1635},"research":{"mu":-0.46,"lo":-0.7784,"hi":-0.1416},"news":{"mu":0.14,"lo":-0.1949,"hi":0.4749},"linkedin":{"mu":0.8,"lo":0.476,"hi":1.124},"reddit":{"mu":0.66,"lo":0.4012,"hi":0.9188},"vlog":{"mu":1.32,"lo":1.0999,"hi":1.5401}},"llama-8b-chat":{"neutral":{"mu":-0.86,"lo":-1.1651,"hi":-0.5549},"school":{"mu":-0.84,"lo":-1.1447,"hi":-0.5353},"research":{"mu":-0.12,"lo":-0.428,"hi":0.188},"news":{"mu":-0.82,"lo":-1.1242,"hi":-0.5158},"linkedin":{"mu":1.34,"lo":1.1003,"hi":1.5797},"reddit":{"mu":1.44,"lo":1.2069,"hi":1.6731},"vlog":{"mu":1.38,"lo":1.1297,"hi":1.6303}},"llama-8b-4b-distill-chat":{"neutral":{"mu":-1.0,"lo":-1.3064,"hi":-0.6936},"school":{"mu":-0.94,"lo":-1.2246,"hi":-0.6554},"research":{"mu":-0.74,"lo":-1.0523,"hi":-0.4277},"news":{"mu":-0.88,"lo":-1.1524,"hi":-0.6076},"linkedin":{"mu":1.08,"lo":0.7741,"hi":1.3859},"reddit":{"mu":0.4,"lo":0.0569,"hi":0.7431},"vlog":{"mu":1.24,"lo":0.9768,"hi":1.5032}},"mistral-chat":{"neutral":{"mu":-1.18,"lo":-1.4328,"hi":-0.9272},"school":{"mu":-0.72,"lo":-1.0265,"hi":-0.4135},"research":{"mu":-1.2,"lo":-1.4523,"hi":-0.9477},"news":{"mu":-0.88,"lo":-1.1802,"hi":-0.5798},"linkedin":{"mu":-0.58,"lo":-0.9103,"hi":-0.2497},"reddit":{"mu":-0.48,"lo":-0.7997,"hi":-0.1603},"vlog":{"mu":0.72,"lo":0.3934,"hi":1.0466}},"mistral":{"neutral":{"mu":-1.66,"lo":-1.8475,"hi":-1.4725},"school":{"mu":-1.8,"lo":-1.9197,"hi":-1.6803},"research":{"mu":-1.74,"lo":-1.9059,"hi":-1.5741},"news":{"mu":-1.7374,"lo":-1.8843,"hi":-1.5905},"linkedin":{"mu":-1.3,"lo":-1.5483,"hi":-1.0517},"reddit":{"mu":-1.66,"lo":-1.8638,"hi":-1.4562},"vlog":{"mu":-1.34,"lo":-1.5988,"hi":-1.0812}},"llama-8b-base":{"neutral":{"mu":-1.76,"lo":-1.9122,"hi":-1.6078},"school":{"mu":-1.7,"lo":-1.8727,"hi":-1.5273},"research":{"mu":-1.7,"lo":-1.8632,"hi":-1.5368},"news":{"mu":-1.76,"lo":-1.9223,"hi":-1.5977},"linkedin":{"mu":-1.58,"lo":-1.7857,"hi":-1.3743},"reddit":{"mu":-1.62,"lo":-1.7956,"hi":-1.4444},"vlog":{"mu":-1.58,"lo":-1.752,"hi":-1.408}},"qwen-moe-base":{"neutral":{"mu":-1.92,"lo":-1.9982,"hi":-1.8418},"school":{"mu":-1.82,"lo":-1.9473,"hi":-1.6927},"research":{"mu":-1.88,"lo":-1.9747,"hi":-1.7853},"news":{"mu":-1.899,"lo":-2.0037,"hi":-1.7943},"linkedin":{"mu":-1.5918,"lo":-1.7991,"hi":-1.3846},"reddit":{"mu":-1.42,"lo":-1.6546,"hi":-1.1854},"vlog":{"mu":-1.3,"lo":-1.5418,"hi":-1.0582}}};
+
+const RANK_CONFIDENCE = {"qwen-moe-base":{"neutral":{"mu":1.14,"lo":1.0,"hi":2.0,"std":0.36},"school":{"mu":1.02,"lo":1.0,"hi":1.0,"std":0.15},"research":{"mu":1.05,"lo":1.0,"hi":2.0,"std":0.22},"news":{"mu":2.27,"lo":1.0,"hi":3.0,"std":0.79},"linkedin":{"mu":1.5,"lo":1.0,"hi":2.0,"std":0.53},"reddit":{"mu":1.35,"lo":1.0,"hi":3.0,"std":0.53},"vlog":{"mu":1.52,"lo":1.0,"hi":3.0,"std":0.61}},"llama-8b-base":{"neutral":{"mu":2.21,"lo":1.0,"hi":3.0,"std":0.65},"school":{"mu":2.23,"lo":2.0,"hi":3.0,"std":0.46},"research":{"mu":2.13,"lo":1.0,"hi":3.0,"std":0.45},"news":{"mu":1.97,"lo":1.0,"hi":3.0,"std":0.84},"linkedin":{"mu":1.58,"lo":1.0,"hi":3.0,"std":0.58},"reddit":{"mu":1.92,"lo":1.0,"hi":3.0,"std":0.69},"vlog":{"mu":1.79,"lo":1.0,"hi":3.0,"std":0.72}},"mistral":{"neutral":{"mu":2.65,"lo":2.0,"hi":3.0,"std":0.5},"school":{"mu":2.75,"lo":2.0,"hi":3.0,"std":0.45},"research":{"mu":2.82,"lo":2.0,"hi":3.0,"std":0.4},"news":{"mu":1.76,"lo":1.0,"hi":3.0,"std":0.74},"linkedin":{"mu":2.93,"lo":2.0,"hi":3.0,"std":0.3},"reddit":{"mu":2.74,"lo":1.0,"hi":3.0,"std":0.52},"vlog":{"mu":3.06,"lo":1.0,"hi":5.0,"std":0.94}},"llama-8b-4b-distill-chat":{"neutral":{"mu":4.35,"lo":4.0,"hi":6.0,"std":0.56},"school":{"mu":4.52,"lo":4.0,"hi":5.0,"std":0.51},"research":{"mu":4.16,"lo":4.0,"hi":5.0,"std":0.37},"news":{"mu":4.44,"lo":4.0,"hi":5.0,"std":0.5},"linkedin":{"mu":4.33,"lo":4.0,"hi":5.0,"std":0.51},"reddit":{"mu":5.59,"lo":4.0,"hi":7.0,"std":1.06},"vlog":{"mu":6.82,"lo":4.0,"hi":10.0,"std":1.65}},"mistral-chat":{"neutral":{"mu":4.91,"lo":4.0,"hi":6.0,"std":0.66},"school":{"mu":4.48,"lo":4.0,"hi":5.0,"std":0.5},"research":{"mu":4.85,"lo":4.0,"hi":5.0,"std":0.38},"news":{"mu":4.56,"lo":4.0,"hi":5.0,"std":0.5},"linkedin":{"mu":4.75,"lo":4.0,"hi":6.0,"std":0.54},"reddit":{"mu":8.9,"lo":7.0,"hi":11.0,"std":0.96},"vlog":{"mu":7.71,"lo":5.0,"hi":10.0,"std":1.65}},"mistral-chat-moe":{"neutral":{"mu":5.75,"lo":4.0,"hi":6.0,"std":0.52},"school":{"mu":6.01,"lo":6.0,"hi":6.0,"std":0.16},"research":{"mu":6.15,"lo":6.0,"hi":7.0,"std":0.4},"news":{"mu":6.22,"lo":6.0,"hi":8.0,"std":0.53},"linkedin":{"mu":5.96,"lo":5.0,"hi":7.0,"std":0.37},"reddit":{"mu":5.68,"lo":4.0,"hi":7.0,"std":1.08},"vlog":{"mu":6.52,"lo":4.0,"hi":10.0,"std":1.59}},"llama-70b-chat":{"neutral":{"mu":8.13,"lo":7.0,"hi":10.0,"std":1.08},"school":{"mu":7.65,"lo":7.0,"hi":10.0,"std":0.88},"research":{"mu":8.2,"lo":7.0,"hi":10.0,"std":0.72},"news":{"mu":7.53,"lo":6.0,"hi":9.0,"std":0.87},"linkedin":{"mu":7.18,"lo":6.0,"hi":8.0,"std":0.46},"reddit":{"mu":6.15,"lo":4.0,"hi":8.0,"std":1.04},"vlog":{"mu":6.71,"lo":4.0,"hi":10.0,"std":1.63}},"qwen-32b-chat":{"neutral":{"mu":8.33,"lo":7.0,"hi":10.0,"std":1.08},"school":{"mu":8.29,"lo":7.0,"hi":10.0,"std":1.0},"research":{"mu":8.98,"lo":8.0,"hi":10.0,"std":0.69},"news":{"mu":9.51,"lo":8.0,"hi":10.0,"std":0.69},"linkedin":{"mu":9.27,"lo":9.0,"hi":10.0,"std":0.5},"reddit":{"mu":4.67,"lo":4.0,"hi":7.0,"std":0.92},"vlog":{"mu":7.45,"lo":4.0,"hi":10.0,"std":1.62}},"qwen-8b-chat":{"neutral":{"mu":8.91,"lo":7.0,"hi":10.0,"std":1.07},"school":{"mu":9.32,"lo":7.0,"hi":10.0,"std":0.87},"research":{"mu":9.68,"lo":8.0,"hi":10.0,"std":0.57},"news":{"mu":7.6,"lo":6.0,"hi":9.0,"std":0.84},"linkedin":{"mu":9.7,"lo":9.0,"hi":10.0,"std":0.47},"reddit":{"mu":8.81,"lo":7.0,"hi":11.0,"std":0.94},"vlog":{"mu":4.06,"lo":2.0,"hi":7.0,"std":1.04}},"llama-8b-chat":{"neutral":{"mu":8.62,"lo":7.0,"hi":10.0,"std":1.1},"school":{"mu":8.72,"lo":7.0,"hi":10.0,"std":1.02},"research":{"mu":6.99,"lo":6.0,"hi":8.0,"std":0.56},"news":{"mu":9.14,"lo":7.0,"hi":10.0,"std":0.83},"linkedin":{"mu":7.81,"lo":7.0,"hi":8.0,"std":0.46},"reddit":{"mu":9.48,"lo":8.0,"hi":11.0,"std":0.95},"vlog":{"mu":9.4,"lo":6.0,"hi":11.0,"std":1.08}},"qwen-moe-chat":{"neutral":{"mu":11.0,"lo":11.0,"hi":11.0,"std":0.0},"school":{"mu":11.0,"lo":11.0,"hi":11.0,"std":0.0},"research":{"mu":11.0,"lo":11.0,"hi":11.0,"std":0.0},"news":{"mu":11.0,"lo":11.0,"hi":11.0,"std":0.06},"linkedin":{"mu":11.0,"lo":11.0,"hi":11.0,"std":0.0},"reddit":{"mu":10.72,"lo":9.0,"hi":11.0,"std":0.58},"vlog":{"mu":10.95,"lo":10.0,"hi":11.0,"std":0.27}}};
+const PAIRS_CONFIDENCE = [{"m":"mistral-chat","uc1":"neutral","uc2":"reddit","mu1":4.91,"mu2":8.9,"delta":-4.0},{"m":"mistral-chat","uc1":"school","uc2":"reddit","mu1":4.48,"mu2":8.9,"delta":-4.4},{"m":"mistral-chat","uc1":"research","uc2":"reddit","mu1":4.85,"mu2":8.9,"delta":-4.1},{"m":"mistral-chat","uc1":"news","uc2":"reddit","mu1":4.56,"mu2":8.9,"delta":-4.3},{"m":"mistral-chat","uc1":"linkedin","uc2":"reddit","mu1":4.75,"mu2":8.9,"delta":-4.2},{"m":"qwen-32b-chat","uc1":"research","uc2":"reddit","mu1":8.98,"mu2":4.67,"delta":4.3},{"m":"qwen-32b-chat","uc1":"news","uc2":"reddit","mu1":9.51,"mu2":4.67,"delta":4.8},{"m":"qwen-32b-chat","uc1":"linkedin","uc2":"reddit","mu1":9.27,"mu2":4.67,"delta":4.6},{"m":"qwen-8b-chat","uc1":"research","uc2":"vlog","mu1":9.68,"mu2":4.06,"delta":5.6},{"m":"qwen-8b-chat","uc1":"linkedin","uc2":"vlog","mu1":9.7,"mu2":4.06,"delta":5.6}];
+const MODELS_CONFIDENCE = ["qwen-moe-base","llama-8b-base","mistral","llama-8b-4b-distill-chat","mistral-chat","mistral-chat-moe","llama-70b-chat","qwen-32b-chat","qwen-8b-chat","llama-8b-chat","qwen-moe-chat"];
+const VOL_CONFIDENCE = {"qwen-moe-base":0.4,"llama-8b-base":0.22,"mistral":0.39,"llama-8b-4b-distill-chat":0.9,"mistral-chat":1.66,"mistral-chat-moe":0.27,"llama-70b-chat":0.69,"qwen-32b-chat":1.53,"qwen-8b-chat":1.85,"llama-8b-chat":0.84,"qwen-moe-chat":0.1};
+const VAL_CONFIDENCE = {"qwen-moe-base":{"neutral":{"mu":2.0,"lo":2.0,"hi":2.0},"school":{"mu":2.0,"lo":2.0,"hi":2.0},"research":{"mu":2.0,"lo":2.0,"hi":2.0},"news":{"mu":1.9394,"lo":1.8501,"hi":2.0287},"linkedin":{"mu":1.9796,"lo":1.9391,"hi":2.0201},"reddit":{"mu":1.98,"lo":1.9403,"hi":2.0197},"vlog":{"mu":2.0,"lo":2.0,"hi":2.0}},"llama-8b-base":{"neutral":{"mu":1.92,"lo":1.8083,"hi":2.0317},"school":{"mu":1.92,"lo":1.8418,"hi":1.9982},"research":{"mu":1.94,"lo":1.872,"hi":2.008},"news":{"mu":1.94,"lo":1.8516,"hi":2.0284},"linkedin":{"mu":1.96,"lo":1.8806,"hi":2.0394},"reddit":{"mu":1.94,"lo":1.8516,"hi":2.0284},"vlog":{"mu":1.98,"lo":1.9403,"hi":2.0197}},"mistral":{"neutral":{"mu":1.9,"lo":1.7964,"hi":2.0036},"school":{"mu":1.88,"lo":1.7698,"hi":1.9902},"research":{"mu":1.9,"lo":1.8131,"hi":1.9869},"news":{"mu":1.9596,"lo":1.9032,"hi":2.016},"linkedin":{"mu":1.84,"lo":1.6942,"hi":1.9858},"reddit":{"mu":1.9,"lo":1.8131,"hi":1.9869},"vlog":{"mu":1.94,"lo":1.8516,"hi":2.0284}},"llama-8b-4b-distill-chat":{"neutral":{"mu":1.2,"lo":0.9415,"hi":1.4585},"school":{"mu":1.38,"lo":1.1297,"hi":1.6303},"research":{"mu":1.52,"lo":1.3007,"hi":1.7393},"news":{"mu":1.14,"lo":0.8622,"hi":1.4178},"linkedin":{"mu":1.22,"lo":0.9561,"hi":1.4839},"reddit":{"mu":1.54,"lo":1.3458,"hi":1.7342},"vlog":{"mu":1.76,"lo":1.6078,"hi":1.9122}},"mistral-chat":{"neutral":{"mu":1.1,"lo":0.8215,"hi":1.3785},"school":{"mu":1.4,"lo":1.1779,"hi":1.6221},"research":{"mu":1.36,"lo":1.1149,"hi":1.6051},"news":{"mu":1.12,"lo":0.8596,"hi":1.3804},"linkedin":{"mu":1.14,"lo":0.8861,"hi":1.3939},"reddit":{"mu":1.14,"lo":0.8739,"hi":1.4061},"vlog":{"mu":1.72,"lo":1.5506,"hi":1.8894}},"mistral-chat-moe":{"neutral":{"mu":0.94,"lo":0.6727,"hi":1.2073},"school":{"mu":0.88,"lo":0.6196,"hi":1.1404},"research":{"mu":0.96,"lo":0.7047,"hi":1.2153},"news":{"mu":0.2,"lo":-0.1064,"hi":0.5064},"linkedin":{"mu":0.84,"lo":0.5514,"hi":1.1286},"reddit":{"mu":1.54,"lo":1.3378,"hi":1.7422},"vlog":{"mu":1.78,"lo":1.6431,"hi":1.9169}},"llama-70b-chat":{"neutral":{"mu":0.4,"lo":0.118,"hi":0.682},"school":{"mu":0.44,"lo":0.1661,"hi":0.7139},"research":{"mu":0.52,"lo":0.2517,"hi":0.7883},"news":{"mu":-0.06,"lo":-0.3609,"hi":0.2409},"linkedin":{"mu":0.44,"lo":0.1385,"hi":0.7415},"reddit":{"mu":1.48,"lo":1.2643,"hi":1.6957},"vlog":{"mu":1.76,"lo":1.6078,"hi":1.9122}},"qwen-32b-chat":{"neutral":{"mu":0.38,"lo":0.0997,"hi":0.6603},"school":{"mu":0.36,"lo":0.0815,"hi":0.6385},"research":{"mu":0.4,"lo":0.1607,"hi":0.6393},"news":{"mu":-0.38,"lo":-0.6714,"hi":-0.0886},"linkedin":{"mu":-0.14,"lo":-0.4398,"hi":0.1598},"reddit":{"mu":1.64,"lo":1.4415,"hi":1.8385},"vlog":{"mu":1.74,"lo":1.5839,"hi":1.8961}},"qwen-8b-chat":{"neutral":{"mu":0.32,"lo":0.0453,"hi":0.5947},"school":{"mu":0.22,"lo":-0.0499,"hi":0.4899},"research":{"mu":0.28,"lo":0.0214,"hi":0.5386},"news":{"mu":-0.06,"lo":-0.3332,"hi":0.2132},"linkedin":{"mu":-0.24,"lo":-0.5292,"hi":0.0492},"reddit":{"mu":1.16,"lo":0.8944,"hi":1.4256},"vlog":{"mu":1.9,"lo":1.7964,"hi":2.0036}},"llama-8b-chat":{"neutral":{"mu":0.34,"lo":0.0577,"hi":0.6223},"school":{"mu":0.3,"lo":0.0049,"hi":0.5951},"research":{"mu":0.76,"lo":0.4968,"hi":1.0232},"news":{"mu":-0.32,"lo":-0.6275,"hi":-0.0125},"linkedin":{"mu":0.28,"lo":-0.029,"hi":0.589},"reddit":{"mu":1.06,"lo":0.7868,"hi":1.3332},"vlog":{"mu":1.62,"lo":1.4537,"hi":1.7863}},"qwen-moe-chat":{"neutral":{"mu":-1.08,"lo":-1.3286,"hi":-0.8314},"school":{"mu":-0.78,"lo":-1.0118,"hi":-0.5482},"research":{"mu":-0.54,"lo":-0.7783,"hi":-0.3017},"news":{"mu":-0.92,"lo":-1.1749,"hi":-0.6651},"linkedin":{"mu":-1.38,"lo":-1.6035,"hi":-1.1565},"reddit":{"mu":0.88,"lo":0.6196,"hi":1.1404},"vlog":{"mu":1.38,"lo":1.1495,"hi":1.6105}}};
+
+const TRAITS=[
+  {id:'approval',label:'Approval',rank:RANK_APPROVAL,pairs:PAIRS_APPROVAL,models:MODELS_APPROVAL,vol:VOL_APPROVAL,val:VAL_APPROVAL,
+   n_arcs:8,avg_ci:3.6,note:'Vlog is the disruptor — it pulls base models up and pushes some chat models down. 8 confirmed rank shifts, all involving vlog.'},
+  {id:'curiosity',label:'Curiosity',rank:RANK_CURIOSITY,pairs:PAIRS_CURIOSITY,models:MODELS_CURIOSITY,vol:VOL_CURIOSITY,val:VAL_CURIOSITY,
+   n_arcs:5,avg_ci:4.2,note:'Reddit is the disruptor — qwen-32b-chat jumps 6 ranks into base-model territory, while llama-8b-4b-distill drops ~5 ranks. 5 confirmed shifts, driven by reddit and vlog. Base models lock ranks #1–3 everywhere except mistral in vlog.'},
+  {id:'politeness',label:'Politeness',rank:RANK_POLITENESS,pairs:PAIRS_POLITENESS,models:MODELS_POLITENESS,vol:VOL_POLITENESS,val:VAL_POLITENESS,
+   n_arcs:8,avg_ci:2.8,note:'Linkedin and reddit are the disruptors. Mistral-MoE-Chat swings 5 ranks between linkedin (#7) and reddit/vlog (#1–2). Llama-8b-chat jumps 4 ranks between school/news and linkedin/reddit. Unlike emotions, base models are consistently worst — the metric favors text_a (personality-prompted) for chat models only. Tighter CIs (avg 2.8) mean rankings are more stable here than for emotions.'},
+  {id:'confidence',label:'Confidence',rank:RANK_CONFIDENCE,pairs:PAIRS_CONFIDENCE,models:MODELS_CONFIDENCE,vol:VOL_CONFIDENCE,val:VAL_CONFIDENCE,
+   n_arcs:10,avg_ci:2.2,note:'The most unstable trait — 10 confirmed rank shifts, the highest of any metric, with the tightest CIs (avg 2.2). Reddit is again the key disruptor. Mistral-chat drops 4 ranks in reddit vs everywhere else. Qwen-32b-chat rises ~5 ranks in reddit. Qwen-8b-chat swings 5.6 ranks between research/linkedin and vlog. Base models lock #1–3 with near-zero uncertainty.'}
+];
+
+const UCS=["neutral","school","research","news","linkedin","reddit","vlog"];
+const BASE=new Set(["llama-8b-base","qwen-moe-base","mistral"]);
+const model_col={'llama-8b-base':'#ef4444','qwen-moe-base':'#94a3b8','mistral':'#a0764d','qwen-32b-chat':'#00bcd4','qwen-8b-chat':'#cddc39','qwen-moe-chat':'#1a6e8a','llama-70b-chat':'#a78bfa','llama-8b-chat':'#e879a8','llama-8b-4b-distill-chat':'#38bdf8','mistral-chat-moe':'#34d399','mistral-chat':'#fb923c'};
+const model_short={'llama-8b-base':'L8-base','qwen-moe-base':'QMoE-base','mistral':'Mis-base','qwen-32b-chat':'Q32-chat','qwen-8b-chat':'Q8-chat','qwen-moe-chat':'QMoE-chat','llama-70b-chat':'L70-chat','llama-8b-chat':'L8-chat','llama-8b-4b-distill-chat':'L8-4b-dist','mistral-chat-moe':'Mis-MoE','mistral-chat':'Mis-chat'};
+const fn="'IBM Plex Mono',monospace",fs="'Instrument Sans',system-ui,sans-serif";
+
+function S(tag,attrs,parent){const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs||{})){if(k==='text'){el.textContent=v;continue}el.setAttribute(k.replace(/([A-Z])/g,'-$1').toLowerCase(),String(v))}if(parent)parent.appendChild(el);return el}
+
+let curTab=0;
+const tabsEl=document.getElementById('tabs');
+const ALL_TABS=['Summary',...TRAITS.map(t=>t.label)];
+ALL_TABS.forEach((name,i)=>{const btn=document.createElement('button');btn.className='tab'+(i===0?' on':'');btn.textContent=name;btn.onclick=()=>{curTab=i;render()};tabsEl.appendChild(btn)});
+
+function render(){
+  tabsEl.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(i===curTab?' on':''));
+  const el=document.getElementById('content');el.innerHTML='';
+  if(curTab===0) buildSummary(el);
+  else buildPane(el,TRAITS[curTab-1]);
+}
+
+function buildSummary(el){
+  const traitSummary=[
+    {label:'Approval',arcs:8,ci:3.6,disruptor:'vlog',maxD:7.7,maxM:'Q8-chat',col:'var(--pk)',
+     detail:'All 8 arcs terminate at vlog. Two models affected: Mistral Base jumps from rank #9\u201310 to #4 (\u21915.7), while Qwen-8b-chat crashes from #1 to #9 (\u21937.7). Vlog uniquely inverts the base-vs-chat hierarchy for this trait.'},
+    {label:'Curiosity',arcs:5,ci:4.2,disruptor:'reddit',maxD:6.0,maxM:'Q32-chat',col:'var(--cy)',
+     detail:'Reddit pulls Qwen-32b-chat from rank #8\u20139 up to #3 (\u21916.0) \u2014 into base-model territory. Llama-8b-4b-distill drops from #4 to #9 in reddit and vlog. Widest CIs overall (4.2 ranks), so many apparent differences are not statistically resolvable.'},
+    {label:'Politeness',arcs:8,ci:2.8,disruptor:'linkedin \u00b7 reddit',maxD:5.1,maxM:'Mis-MoE',col:'var(--gn)',
+     detail:'Three different chat models shift here \u2014 the most diverse set. Linkedin is a novel disruptor (5 of 8 arcs). Mistral-MoE-chat: rank #2 in reddit/vlog but #7 in linkedin. Base models rank worst (judged less polite) \u2014 the opposite of emotion traits.'},
+    {label:'Confidence',arcs:10,ci:2.2,disruptor:'reddit',maxD:5.6,maxM:'Q8-chat',col:'var(--am)',
+     detail:'Most arc-rich trait. Reddit appears in 8 of 10 arcs. Mistral-chat alone has 5 arcs: rank #4\u20135 everywhere but #9 in reddit. Tightest CIs (2.2 ranks) make even moderate shifts detectable. Base models lock #1\u20133 with near-zero uncertainty.'}
+  ];
+  const modelShifts=[
+    {m:'qwen-8b-chat',n:3,traits:'Approval, Curiosity, Confidence',maxD:7.7,col:model_col['qwen-8b-chat']},
+    {m:'qwen-32b-chat',n:2,traits:'Curiosity, Confidence',maxD:6.0,col:model_col['qwen-32b-chat']},
+    {m:'mistral',n:1,traits:'Approval',maxD:5.7,col:model_col['mistral']},
+    {m:'llama-8b-4b-distill-chat',n:1,traits:'Curiosity',maxD:4.8,col:model_col['llama-8b-4b-distill-chat']},
+    {m:'mistral-chat-moe',n:1,traits:'Politeness',maxD:5.1,col:model_col['mistral-chat-moe']},
+    {m:'qwen-moe-chat',n:1,traits:'Politeness',maxD:4.8,col:model_col['qwen-moe-chat']},
+    {m:'llama-8b-chat',n:1,traits:'Politeness',maxD:4.2,col:model_col['llama-8b-chat']},
+    {m:'mistral-chat',n:1,traits:'Confidence',maxD:4.4,col:model_col['mistral-chat']}
+  ];
+  const stableModels=[
+    {m:'llama-8b-base',note:'Top-ranked for emotion traits (curiosity, approval), bottom for judged traits (politeness, confidence). Position is extreme but never changes.',col:model_col['llama-8b-base']},
+    {m:'qwen-moe-base',note:'Most predictable model. CI width often \u22641 rank. Pinned at #1 for confidence with zero variance in 4 of 7 personalities.',col:model_col['qwen-moe-base']},
+    {m:'llama-70b-chat',note:'The only stable chat model. Mid-ranked everywhere (avg rank ~6\u20137) with wide CIs, but no personality pushes it outside its range.',col:model_col['llama-70b-chat']}
+  ];
+  const persEndpoints={neutral:3,school:4,research:6,news:9,linkedin:11,reddit:15,vlog:12};
+
+  el.innerHTML=`
+  <div class="call" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18)">
+    <div class="ct" style="color:var(--rd)">Core Finding: Model Rankings Are Personality-Dependent</div>
+    <div class="cd">Across 4 traits, 11 models, and 7 personality prompts, we find <strong style="color:var(--wh)">31 statistically confirmed rank shifts</strong> \u2014 cases where the same model occupies a significantly different rank under different personalities (non-overlapping bootstrapped 95% CIs, 5,000 resamples, n=100 per cell). <strong style="color:var(--wh)">8 of 11 models</strong> (73%) have at least one confirmed shift. The 3 unaffected models are all base or large-parameter models. No single personality consistently disrupts rankings \u2014 the disruptor changes by trait.</div>
+  </div>
+
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="met" style="border-top-color:var(--rd)"><div class="v" style="color:var(--rd)">31</div><div class="l">Total Confirmed Shifts</div><div class="s">Non-overlapping 95% CIs</div></div>
+    <div class="met" style="border-top-color:var(--am)"><div class="v" style="color:var(--am)">8/11</div><div class="l">Models Affected</div><div class="s">73% have \u22651 shift</div></div>
+    <div class="met" style="border-top-color:var(--pk)"><div class="v" style="color:var(--pk)">7.7</div><div class="l">Max Rank Swing</div><div class="s">Q8-chat \u00b7 Approval \u00b7 vlog</div></div>
+    <div class="met" style="border-top-color:var(--gn)"><div class="v" style="color:var(--gn)">3/11</div><div class="l">Fully Stable Models</div><div class="s">2 base + 1 large chat</div></div>
+  </div>
+
+  <div class="sec"><h3>Confirmed Shifts by Trait</h3>
+  <p class="desc">Each trait reveals different personalities as rank disruptors. The number of arcs (non-overlapping 95% rank CIs between two personalities for the same model), the disrupting personality, and the magnitude of the largest swing varies across traits. Click the individual trait tabs above for full charts.</p>
+  <div class="box" id="trait-table"></div></div>
+
+  <div class="sec"><h3>Personality Disruption Profile</h3>
+  <p class="desc">How often each personality appears as an arc endpoint across all 4 traits. Reddit and vlog are the most frequent disruptors. Neutral is almost never involved \u2014 it serves as a stable baseline.</p>
+  <div class="box" id="pers-profile"></div></div>
+
+  <div class="sec"><h3>Which Models Are Unstable?</h3>
+  <p class="desc">Models sorted by how many traits they exhibit confirmed rank shifts in. Appearing in multiple traits means the model is systematically personality-sensitive, not a one-off fluke. Max |\u0394| is the single largest rank swing observed for that model across all traits.</p>
+  <div class="box" id="model-table"></div></div>
+
+  <div class="sec"><h3>Which Models Are Stable?</h3>
+  <p class="desc">Only 3 of 11 models have zero confirmed rank shifts across all 4 traits. Two are base (non-instruction-tuned) models; the third is the largest chat model in the sample.</p>
+  <div class="box" id="stable-table"></div></div>
+
+  <div class="sec"><h3>Cross-Trait Heatmap</h3>
+  <p class="desc">For each model \u00d7 personality cell: how many arc endpoints land there, summed across all 4 traits. Darker red = that (model, personality) pair is involved in more cross-personality rank shifts. Empty cells = no confirmed instability.</p>
+  <div class="box" id="heatmap"></div></div>
+
+  <div class="call" style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.15)">
+    <div class="ct" style="color:var(--id)">Implications for Evaluation</div>
+    <div class="cd">
+      <strong style="color:var(--wh)">1. Single-personality benchmarks are unreliable.</strong> A model\u2019s rank genuinely depends on the system prompt \u2014 changing from \u201cneutral\u201d to \u201creddit\u201d can swing a model 6+ positions. Any evaluation using only one personality produces rankings that do not generalize.<br><br>
+      <strong style="color:var(--wh)">2. No safe default personality exists.</strong> Different traits are destabilized by different personalities. Reddit disrupts curiosity and confidence; vlog disrupts approval; linkedin disrupts politeness. A personality that is stable for one trait may be disruptive for another.<br><br>
+      <strong style="color:var(--wh)">3. Instability is a chat-model phenomenon.</strong> All 3 stable models are either base (un-instruction-tuned) or the largest chat model (70B). This suggests that instruction tuning and RLHF amplify sensitivity to prompt framing \u2014 the very process that makes models \u201cfollow instructions\u201d also makes their behavior more personality-dependent.<br><br>
+      <strong style="color:var(--wh)">4. Some models are systematically unreliable to rank.</strong> Qwen-8b-chat shifts in 3 of 4 traits with a max swing of 7.7 ranks. Any single-number ranking of this model is misleading. Evaluations should report rank distributions, not point estimates.<br><br>
+      <strong style="color:var(--wh)">5. Effect sizes are large.</strong> The median confirmed shift is ~4.5 ranks out of 11 \u2014 roughly 40% of the full ranking scale. These are not marginal differences; they represent qualitative changes in a model\u2019s relative standing.
+    </div>
+  </div>
+
+  <div class="call" style="background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.15)">
+    <div class="ct" style="color:var(--gn)">Methodology Note</div>
+    <div class="cd">
+      All results use the same bootstrap procedure: 5,000 resamples of n=100 observations per (model \u00d7 personality) cell. Each resample draws 100 values with replacement from the original 100, computes the cell mean, then ranks all 11 models. The 2.5th and 97.5th percentiles of the 5,000 rank values form the 95% CI. An arc (confirmed shift) exists when two personalities produce non-overlapping rank CIs for the same model \u2014 meaning that even accounting for sampling uncertainty, the model\u2019s rank is statistically distinguishable between those two contexts. A small number of cells in politeness and confidence have n=98\u201399 due to missing values; this does not materially affect results.
+    </div>
+  </div>`;
+
+  // Trait table
+  const tt=document.getElementById('trait-table');
+  let h='<table><tr><th>Trait</th><th>Arcs</th><th>Avg CI</th><th>Disruptor</th><th>Max |\u0394|</th><th>Model</th><th>Detail</th></tr>';
+  traitSummary.forEach(t=>{
+    h+=`<tr><td style="color:${t.col};font-weight:700">${t.label}</td>`;
+    h+=`<td style="color:var(--rd);font-weight:800;font-family:${fn}">${t.arcs}</td>`;
+    h+=`<td style="font-family:${fn}">${t.ci}</td>`;
+    h+=`<td style="color:var(--wh);font-weight:600">${t.disruptor}</td>`;
+    h+=`<td style="color:var(--am);font-weight:700;font-family:${fn}">${t.maxD}</td>`;
+    h+=`<td style="font-family:${fn};font-size:9px">${t.maxM}</td>`;
+    h+=`<td style="color:var(--dm);font-size:9px;max-width:300px">${t.detail}</td></tr>`;
+  });
+  h+=`<tr style="border-top:2px solid var(--bd)"><td style="font-weight:700;color:var(--wh)">Total</td>`;
+  h+=`<td style="color:var(--rd);font-weight:800;font-family:${fn}">31</td><td colspan="5" style="color:var(--dm);font-size:9px">8+5+8+10 across 4 traits \u00b7 median |\u0394| \u2248 4.5 ranks</td></tr>`;
+  tt.innerHTML=h+'</table>';
+
+  // Personality disruption profile
+  const pp=document.getElementById('pers-profile');
+  const persOrder=['reddit','vlog','linkedin','news','research','school','neutral'];
+  const maxPE=15;
+  h='<table><tr><th>Personality</th><th>Endpoints</th><th style="width:45%"></th><th>Role</th></tr>';
+  persOrder.forEach(pers=>{
+    const cnt=persEndpoints[pers]||0;
+    const bw=Math.round((cnt/maxPE)*200);
+    const role=pers==='reddit'?'Primary disruptor for curiosity, confidence, politeness':
+                pers==='vlog'?'Primary disruptor for approval; secondary for curiosity, confidence':
+                pers==='linkedin'?'Primary disruptor for politeness; secondary for confidence':
+                pers==='news'?'Frequent arc origin (calm baseline that contrasts with disruptors)':
+                pers==='research'?'Occasional arc origin':
+                pers==='school'?'Rarely involved':
+                'Almost never involved \u2014 effective stable baseline';
+    const barCol=cnt>=10?'var(--rd)':cnt>=5?'var(--am)':'var(--gn)';
+    h+=`<tr><td style="color:var(--wh);font-weight:700">${pers}</td>`;
+    h+=`<td style="color:${barCol};font-weight:800;font-family:${fn};text-align:center">${cnt}</td>`;
+    h+=`<td><div class="vol-bar" style="width:${bw}px;background:${barCol}"></div></td>`;
+    h+=`<td style="color:var(--dm);font-size:9px">${role}</td></tr>`;
+  });
+  pp.innerHTML=h+'</table>';
+
+  // Model instability table
+  const mt=document.getElementById('model-table');
+  h='<table><tr><th>Model</th><th>Traits</th><th style="width:25%"></th><th>Max |\u0394|</th><th>Affected Traits</th></tr>';
+  modelShifts.forEach(ms=>{
+    const bw=ms.n*40;
+    h+=`<tr><td style="color:${ms.col};font-weight:600;font-family:${fn}">${model_short[ms.m]}</td>`;
+    h+=`<td style="color:var(--rd);font-weight:800;font-family:${fn};text-align:center">${ms.n}/4</td>`;
+    h+=`<td><div class="vol-bar" style="width:${bw}px;background:${ms.col}"></div></td>`;
+    h+=`<td style="color:var(--am);font-weight:700;font-family:${fn}">${ms.maxD}</td>`;
+    h+=`<td style="color:var(--dm);font-size:9px">${ms.traits}</td></tr>`;
+  });
+  mt.innerHTML=h+'</table>';
+
+  // Stable models table
+  const st=document.getElementById('stable-table');
+  h='<table><tr><th>Model</th><th>Type</th><th>Why Stable</th></tr>';
+  stableModels.forEach(sm=>{
+    const isB=BASE.has(sm.m);
+    h+=`<tr><td style="color:${sm.col};font-weight:600;font-family:${fn}">${model_short[sm.m]}</td>`;
+    h+=`<td style="color:${isB?'var(--gn)':'var(--id)'};font-weight:600">${isB?'Base':'Chat (70B)'}</td>`;
+    h+=`<td style="color:var(--dm);font-size:10px">${sm.note}</td></tr>`;
+  });
+  st.innerHTML=h+'</table>';
+
+  // Heatmap
+  const hm=document.getElementById('heatmap');
+  const allModels=["llama-8b-base","qwen-moe-base","mistral","qwen-32b-chat","qwen-8b-chat","qwen-moe-chat","llama-70b-chat","llama-8b-chat","llama-8b-4b-distill-chat","mistral-chat-moe","mistral-chat"];
+  const counts={};
+  allModels.forEach(m=>{counts[m]={};UCS.forEach(uc=>counts[m][uc]=0)});
+  TRAITS.forEach(T=>{T.pairs.forEach(p=>{counts[p.m][p.uc1]++;counts[p.m][p.uc2]++})});
+  const maxC=Math.max(...allModels.map(m=>Math.max(...UCS.map(uc=>counts[m][uc]))));
+  const W=780,cellW=85,cellH=28,lM=110,tM=25;
+  const hH=tM+allModels.length*cellH+5;
+  const sv=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  sv.setAttribute('width',W);sv.setAttribute('height',hH);sv.style.display='block';
+  hm.appendChild(sv);
+  UCS.forEach((uc,j)=>{S('text',{x:lM+j*cellW+cellW/2,y:tM-8,textAnchor:'middle',fill:'var(--wh)',fontSize:9,fontFamily:fn,fontWeight:600,text:uc},sv)});
+  allModels.forEach((m,i)=>{
+    const y=tM+i*cellH;
+    const tot=UCS.reduce((s,uc)=>s+counts[m][uc],0);
+    S('text',{x:lM-6,y:y+cellH/2+3,textAnchor:'end',fill:tot>0?model_col[m]:'var(--dm)',fontSize:9,fontFamily:fn,fontWeight:tot>0?600:400,text:model_short[m]},sv);
+    UCS.forEach((uc,j)=>{
+      const v=counts[m][uc],x=lM+j*cellW;
+      const intensity=maxC>0?v/maxC:0;
+      const bg=v===0?'transparent':`rgba(239,68,68,${0.08+intensity*0.5})`;
+      const border=v>0?`rgba(239,68,68,${0.15+intensity*0.3})`:'rgba(255,255,255,0.04)';
+      S('rect',{x:x+1,y:y+1,width:cellW-2,height:cellH-2,rx:4,fill:bg,stroke:border,strokeWidth:0.5},sv);
+      if(v>0){S('text',{x:x+cellW/2,y:y+cellH/2+4,textAnchor:'middle',fill:v>=3?'var(--wh)':v>=2?'var(--rd)':'rgba(239,68,68,0.7)',fontSize:11,fontFamily:fn,fontWeight:800,text:v},sv)}
+    });
+  });
+}
+
+function buildPane(el,T){
+  const RANK=T.rank,PAIRS=T.pairs,MODS=T.models,VOL=T.vol;
+
+  // Metrics
+  const nVol=Object.values(VOL).filter(v=>v>1.5).length;
+  const maxVol=Math.max(...Object.values(VOL));
+  const maxVolM=Object.entries(VOL).find(([k,v])=>v===maxVol)[0];
+  const arcCol=T.n_arcs>0?'var(--rd)':'var(--gn)';
+  const ciCol=T.avg_ci>4?'var(--rd)':T.avg_ci>3?'var(--am)':'var(--gn)';
+
+  el.innerHTML=`
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="met" style="border-top-color:${arcCol}"><div class="v" style="color:${arcCol}">${T.n_arcs}</div><div class="l">Confirmed Rank Shifts</div><div class="s">Non-overlapping 95% CIs</div></div>
+    <div class="met" style="border-top-color:${ciCol}"><div class="v" style="color:${ciCol}">${T.avg_ci}</div><div class="l">Avg CI Width (ranks)</div><div class="s">Lower = more stable</div></div>
+    <div class="met" style="border-top-color:var(--am)"><div class="v" style="color:var(--am)">${nVol}/11</div><div class="l">Volatile Models</div><div class="s">Rank σ > 1.5 across personalities</div></div>
+    <div class="met" style="border-top-color:var(--pk)"><div class="v" style="color:var(--pk)">${maxVol.toFixed(1)}</div><div class="l">Max Volatility</div><div class="s">${model_short[maxVolM]}</div></div>
+  </div>
+
+  <div class="call" style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.15)">
+    <div class="ct" style="color:var(--id)">${T.label} — Key Finding</div>
+    <div class="cd">${T.note}</div>
+  </div>
+
+  <div class="sec"><h3>Rank Distributions</h3>
+  <p class="desc">Each column = personality. Vertical bars = bootstrapped 95% CI of rank (5,000 resamples of n=100). ■ base ● chat. Arcs = non-overlapping CIs.</p>
+  <div class="leg" id="leg-${T.id}"></div>
+  <div class="box"><div class="label">${T.label} diff (prob_a − prob_b) — rank #1 (top) = highest diff</div><div id="chart-${T.id}"></div></div></div>
+
+  <div class="sec"><h3>Real Value Distributions</h3>
+  <p class="desc">Same layout but y-axis = actual prob_a − prob_b values. 95% CI from t-distribution (n=100 per cell). Shows the raw signal underneath the ranks — overlapping CIs here explain the wide rank uncertainty above.</p>
+  <div class="box"><div class="label">${T.label} diff (prob_a − prob_b) — real values, t-based 95% CI, n=100</div><div id="valchart-${T.id}"></div></div></div>
+
+  <div class="sec"><h3>Volatility Table</h3>
+  <p class="desc">Rank σ across 7 personalities. Higher = more personality-sensitive.</p>
+  <div class="box" id="voltable-${T.id}"></div></div>`;
+
+  // Legend
+  const legEl=document.getElementById('leg-'+T.id);
+  MODS.forEach(m=>{const isB=BASE.has(m);legEl.innerHTML+=`<div class="li"><div class="dot" style="background:${model_col[m]};${isB?'border:1.5px solid var(--wh);border-radius:2px':'border-radius:50%'}"></div><span style="color:${model_col[m]}">${model_short[m]}</span></div>`});
+
+  // Chart
+  drawChart(document.getElementById('chart-'+T.id),RANK,PAIRS,MODS);
+
+  // Value chart
+  drawValueChart(document.getElementById('valchart-'+T.id),T.val,PAIRS,MODS);
+
+  // Vol table
+  buildVolTable(document.getElementById('voltable-'+T.id),RANK,VOL,MODS);
+}
+
+function drawChart(container,RANK,PAIRS,MODS){
+  const nM=MODS.length;
+  const model_idx={};MODS.forEach((m,i)=>model_idx[m]=i);
+  const uc_idx={};UCS.forEach((u,i)=>uc_idx[u]=i);
+  const arcEP={};PAIRS.forEach(p=>{if(!arcEP[p.m])arcEP[p.m]=new Set();arcEP[p.m].add(p.uc1);arcEP[p.m].add(p.uc2)});
+
+  const W=870,H=620,lM=40,rM=16,tM=10,bM=55;
+  const colW=(W-lM-rM)/7,plotH=H-tM-bM;
+  const yMin=0.3,yMax=11.7;
+  const yS=v=>tM+((v-yMin)/(yMax-yMin))*plotH;
+  const barW=4.5,gap=1.2,totalBarW=nM*(barW+gap)-gap;
+  function barCx(ci,mi){return lM+ci*colW+(colW-totalBarW)/2+mi*(barW+gap)+barW/2}
+
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('width',W);s.setAttribute('height',H);s.style.display='block';
+  container.appendChild(s);
+
+  for(let r=1;r<=11;r++){const y=yS(r);S('line',{x1:lM,y1:y,x2:W-rM,y2:y,stroke:'var(--bd)',strokeWidth:0.5},s);const isT=r<=3,isB=r>=9;S('text',{x:lM-6,y:y+3,textAnchor:'end',fill:isT?'var(--gn)':isB?'var(--rd)':'var(--dm)',fontSize:9,fontFamily:fn,fontWeight:(isT||isB)?700:400,text:'#'+r},s)}
+  S('rect',{x:lM,y:yS(yMin),width:W-lM-rM,height:yS(3.5)-yS(yMin),fill:'rgba(52,211,153,0.03)'},s);
+  S('rect',{x:lM,y:yS(8.5),width:W-lM-rM,height:yS(yMax)-yS(8.5),fill:'rgba(239,68,68,0.03)'},s);
+  S('text',{x:12,y:yS(2),textAnchor:'middle',fill:'var(--gn)',fontSize:7,fontFamily:fn,fontWeight:600,fillOpacity:0.6,text:'BEST',transform:`rotate(-90,12,${yS(2)})`},s);
+  S('text',{x:12,y:yS(10),textAnchor:'middle',fill:'var(--rd)',fontSize:7,fontFamily:fn,fontWeight:600,fillOpacity:0.6,text:'WORST',transform:`rotate(-90,12,${yS(10)})`},s);
+
+  UCS.forEach((uc,ci)=>{
+    const colX=lM+ci*colW;
+    if(ci%2===0)S('rect',{x:colX,y:tM,width:colW,height:plotH,fill:'rgba(255,255,255,0.012)'},s);
+    S('line',{x1:colX,y1:tM,x2:colX,y2:tM+plotH,stroke:'var(--bd)',strokeWidth:0.3},s);
+    S('text',{x:colX+colW/2,y:H-bM+18,textAnchor:'middle',fill:'var(--wh)',fontSize:12,fontFamily:fs,fontWeight:700,text:uc},s);
+    const startX=colX+(colW-totalBarW)/2;
+    MODS.forEach((m,mi)=>{
+      const d=RANK[m]?.[uc];if(!d)return;
+      const isBase=BASE.has(m),col=model_col[m],isEP=arcEP[m]&&arcEP[m].has(uc);
+      const x=startX+mi*(barW+gap),y1=yS(d.lo),y2=yS(d.hi),ciH=Math.max(y2-y1,3);
+      S('rect',{x,y:y1,width:barW,height:ciH,fill:col,fillOpacity:isEP?.5:(isBase?.35:.14),rx:barW/2,stroke:col,strokeWidth:isEP?1.2:(isBase?.8:.3),strokeOpacity:isEP?.9:(isBase?.7:.3)},s);
+      const my=yS(d.mu);
+      if(isBase){const sz=isEP?7:6;S('rect',{x:x+barW/2-sz/2,y:my-sz/2,width:sz,height:sz,rx:1.5,fill:col,stroke:isEP?'var(--wh)':'rgba(255,255,255,.3)',strokeWidth:isEP?1.5:.7},s)}
+      else{const r=isEP?4:2.8;S('circle',{cx:x+barW/2,cy:my,r,fill:col,stroke:isEP?'var(--wh)':'rgba(255,255,255,.15)',strokeWidth:isEP?1.5:.5},s)}
+    })
+  });
+  S('line',{x1:lM+7*colW,y1:tM,x2:lM+7*colW,y2:tM+plotH,stroke:'var(--bd)',strokeWidth:0.3},s);
+
+  const arcG=S('g',{},s);
+  PAIRS.forEach(p=>{
+    const mi=model_idx[p.m],ci1=uc_idx[p.uc1],ci2=uc_idx[p.uc2],col=model_col[p.m];
+    const x1=barCx(ci1,mi),x2=barCx(ci2,mi);
+    const y1=yS(RANK[p.m][p.uc1].mu),y2=yS(RANK[p.m][p.uc2].mu);
+    const midY=(y1+y2)/2,side=midY<yS(6)?-1:1,bulge=Math.abs(ci2-ci1)*25*side,cpy=(y1+y2)/2+bulge;
+    S('path',{d:`M${x1},${y1} Q${(x1+x2)/2},${cpy} ${x2},${y2}`,fill:'none',stroke:col,strokeWidth:4,strokeOpacity:0.1},arcG);
+    S('path',{d:`M${x1},${y1} Q${(x1+x2)/2},${cpy} ${x2},${y2}`,fill:'none',stroke:col,strokeWidth:2,strokeOpacity:0.6,strokeDasharray:'5,3'},arcG);
+    S('circle',{cx:x1,cy:y1,r:5,fill:col,stroke:'var(--wh)',strokeWidth:1.5},arcG);
+    S('circle',{cx:x2,cy:y2,r:5,fill:col,stroke:'var(--wh)',strokeWidth:1.5},arcG);
+    const lx=(x1+x2)/2,ly=cpy+(side>0?12:-12),dir=p.delta>0?'▲':'▼',dc=p.delta>0?'var(--gn)':'var(--rd)';
+    S('rect',{x:lx-26,y:ly-9,width:52,height:18,rx:9,fill:'var(--bg)',stroke:col,strokeWidth:1.2,strokeOpacity:.7},arcG);
+    S('text',{x:lx,y:ly+4,textAnchor:'middle',fill:dc,fontSize:9,fontFamily:fn,fontWeight:800,text:dir+' Δ'+Math.abs(p.delta).toFixed(1)},arcG);
+    S('text',{x:lx,y:ly+(side>0?14:-14),textAnchor:'middle',fill:col,fontSize:7,fontFamily:fn,fontWeight:600,fillOpacity:.7,text:model_short[p.m]},arcG);
+  });
+}
+
+function drawValueChart(container,VAL,PAIRS,MODS){
+  const nM=MODS.length;
+  const model_idx={};MODS.forEach((m,i)=>model_idx[m]=i);
+  const uc_idx={};UCS.forEach((u,i)=>uc_idx[u]=i);
+  const arcEP={};PAIRS.forEach(p=>{if(!arcEP[p.m])arcEP[p.m]=new Set();arcEP[p.m].add(p.uc1);arcEP[p.m].add(p.uc2)});
+  let allLo=Infinity,allHi=-Infinity;
+  MODS.forEach(m=>UCS.forEach(uc=>{const d=VAL[m]?.[uc];if(d){allLo=Math.min(allLo,d.lo);allHi=Math.max(allHi,d.hi)}}));
+  const pad=(allHi-allLo)*0.08;const yMinV=allLo-pad,yMaxV=allHi+pad;
+  const W=870,H=620,lM=55,rM=16,tM=10,bM=55;
+  const colW=(W-lM-rM)/7,plotH=H-tM-bM;
+  const yS=v=>tM+plotH-((v-yMinV)/(yMaxV-yMinV))*plotH;
+  const barW=4.5,gap=1.2,totalBarW=nM*(barW+gap)-gap;
+  function barCx(ci,mi){return lM+ci*colW+(colW-totalBarW)/2+mi*(barW+gap)+barW/2}
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('width',W);s.setAttribute('height',H);s.style.display='block';container.appendChild(s);
+  const step=Math.max(0.01,Math.round((yMaxV-yMinV)/8*100)/100);
+  for(let v=Math.ceil(yMinV/step)*step;v<=yMaxV;v+=step){
+    const y=yS(v);if(y<tM||y>tM+plotH)continue;
+    S('line',{x1:lM,y1:y,x2:W-rM,y2:y,stroke:'var(--bd)',strokeWidth:0.5},s);
+    const col=Math.abs(v)<0.001?'var(--wh)':'var(--dm)';
+    S('text',{x:lM-6,y:y+3,textAnchor:'end',fill:col,fontSize:8,fontFamily:fn,fontWeight:Math.abs(v)<0.001?700:400,text:v.toFixed(2)},s);
+  }
+  if(yMinV<0&&yMaxV>0){S('line',{x1:lM,y1:yS(0),x2:W-rM,y2:yS(0),stroke:'rgba(255,255,255,0.15)',strokeWidth:1.5},s)}
+  S('text',{x:10,y:tM+plotH/2,textAnchor:'middle',fill:'var(--dm)',fontSize:8,fontFamily:fn,fontWeight:600,text:'prob_a − prob_b',transform:`rotate(-90,10,${tM+plotH/2})`},s);
+  UCS.forEach((uc,ci)=>{
+    const colX=lM+ci*colW;
+    if(ci%2===0)S('rect',{x:colX,y:tM,width:colW,height:plotH,fill:'rgba(255,255,255,0.012)'},s);
+    S('line',{x1:colX,y1:tM,x2:colX,y2:tM+plotH,stroke:'var(--bd)',strokeWidth:0.3},s);
+    S('text',{x:colX+colW/2,y:H-bM+18,textAnchor:'middle',fill:'var(--wh)',fontSize:12,fontFamily:fs,fontWeight:700,text:uc},s);
+    const startX=colX+(colW-totalBarW)/2;
+    MODS.forEach((m,mi)=>{
+      const d=VAL[m]?.[uc];if(!d)return;
+      const isBase=BASE.has(m),col=model_col[m],isEP=arcEP[m]&&arcEP[m].has(uc);
+      const x=startX+mi*(barW+gap);
+      const y1=yS(d.hi),y2=yS(d.lo);const ciH=Math.max(y2-y1,3);
+      S('rect',{x,y:y1,width:barW,height:ciH,fill:col,fillOpacity:isEP?.5:(isBase?.35:.14),rx:barW/2,stroke:col,strokeWidth:isEP?1.2:(isBase?.8:.3),strokeOpacity:isEP?.9:(isBase?.7:.3)},s);
+      const my=yS(d.mu);
+      if(isBase){const sz=isEP?7:6;S('rect',{x:x+barW/2-sz/2,y:my-sz/2,width:sz,height:sz,rx:1.5,fill:col,stroke:isEP?'var(--wh)':'rgba(255,255,255,.3)',strokeWidth:isEP?1.5:.7},s)}
+      else{const r=isEP?4:2.8;S('circle',{cx:x+barW/2,cy:my,r,fill:col,stroke:isEP?'var(--wh)':'rgba(255,255,255,.15)',strokeWidth:isEP?1.5:.5},s)}
+    });
+  });
+  S('line',{x1:lM+7*colW,y1:tM,x2:lM+7*colW,y2:tM+plotH,stroke:'var(--bd)',strokeWidth:0.3},s);
+  const arcG=S('g',{},s);
+  PAIRS.forEach(p=>{
+    const mi=model_idx[p.m],ci1=uc_idx[p.uc1],ci2=uc_idx[p.uc2],col=model_col[p.m];
+    const v1=VAL[p.m]?.[p.uc1],v2=VAL[p.m]?.[p.uc2];if(!v1||!v2)return;
+    const x1=barCx(ci1,mi),x2=barCx(ci2,mi),y1=yS(v1.mu),y2=yS(v2.mu);
+    const midY=(y1+y2)/2,chartMidY=tM+plotH/2;
+    const side=midY<chartMidY?-1:1,bulge=Math.abs(ci2-ci1)*25*side,cpy=(y1+y2)/2+bulge;
+    S('path',{d:`M${x1},${y1} Q${(x1+x2)/2},${cpy} ${x2},${y2}`,fill:'none',stroke:col,strokeWidth:4,strokeOpacity:0.1},arcG);
+    S('path',{d:`M${x1},${y1} Q${(x1+x2)/2},${cpy} ${x2},${y2}`,fill:'none',stroke:col,strokeWidth:2,strokeOpacity:0.6,strokeDasharray:'5,3'},arcG);
+    S('circle',{cx:x1,cy:y1,r:5,fill:col,stroke:'var(--wh)',strokeWidth:1.5},arcG);
+    S('circle',{cx:x2,cy:y2,r:5,fill:col,stroke:'var(--wh)',strokeWidth:1.5},arcG);
+    const lx=(x1+x2)/2,ly=cpy+(side>0?12:-12);
+    const dv=Math.abs(v1.mu-v2.mu),dir=v2.mu>v1.mu?'▲':'▼',dc=v2.mu>v1.mu?'var(--gn)':'var(--rd)';
+    S('rect',{x:lx-28,y:ly-9,width:56,height:18,rx:9,fill:'var(--bg)',stroke:col,strokeWidth:1.2,strokeOpacity:.7},arcG);
+    S('text',{x:lx,y:ly+4,textAnchor:'middle',fill:dc,fontSize:8,fontFamily:fn,fontWeight:800,text:dir+' '+dv.toFixed(3)},arcG);
+    S('text',{x:lx,y:ly+(side>0?14:-14),textAnchor:'middle',fill:col,fontSize:7,fontFamily:fn,fontWeight:600,fillOpacity:.7,text:model_short[p.m]},arcG);
+  });
+}
+
+function buildVolTable(container,RANK,VOL,MODS){
+  const sorted=[...MODS].sort((a,b)=>(VOL[b]||0)-(VOL[a]||0));
+  const maxV=Math.max(...Object.values(VOL));
+  let h='<table><tr><th>Model</th><th>Rank σ</th><th style="width:40%">Volatility</th><th>Best</th><th>Worst</th><th>Swing</th></tr>';
+  sorted.forEach(m=>{
+    const v=VOL[m]||0,col=model_col[m];
+    const ranks=UCS.map(uc=>({uc,mu:RANK[m][uc].mu}));
+    const best=ranks.reduce((a,b)=>a.mu<b.mu?a:b);
+    const worst=ranks.reduce((a,b)=>a.mu>b.mu?a:b);
+    const swing=(worst.mu-best.mu).toFixed(1);
+    const bw=Math.round((v/maxV)*120);
+    const vc=v>1.5?'var(--rd)':v>1.0?'var(--am)':'var(--gn)';
+    h+=`<tr><td style="color:${col};font-weight:600;font-family:${fn}">${model_short[m]}</td>`;
+    h+=`<td style="color:${vc};font-weight:700;font-family:${fn}">${v.toFixed(2)}</td>`;
+    h+=`<td><div class="vol-bar" style="width:${bw}px;background:${col}"></div></td>`;
+    h+=`<td style="font-family:${fn};font-size:9px">#${best.mu.toFixed(1)} <span style="color:var(--dm)">${best.uc}</span></td>`;
+    h+=`<td style="font-family:${fn};font-size:9px">#${worst.mu.toFixed(1)} <span style="color:var(--dm)">${worst.uc}</span></td>`;
+    h+=`<td style="color:${parseFloat(swing)>4?'var(--rd)':parseFloat(swing)>2?'var(--am)':'var(--dm)'};font-weight:700;font-family:${fn}">${swing}</td></tr>`;
+  });
+  h+='</table>';
+  container.innerHTML=h;
+}
+
+render();
+</script>
+</body>
+</html>
