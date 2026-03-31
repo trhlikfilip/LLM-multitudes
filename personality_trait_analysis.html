@@ -9,7 +9,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#f7f8fa;--c1:#ffffff;--c2:#eef0f4;--bd:#cdd3de;--tx:#2d3340;--dm:#6b7588;--wh:#111827;--cy:#0369a1;--pk:#9d174d;--gn:#047857;--rd:#b91c1c;--am:#b45309;--pu:#6d28d9;--or:#9a3412;--id:#4338ca}
 body{background:var(--bg);color:var(--tx);font-family:'Instrument Sans',system-ui,sans-serif;min-height:100vh;padding:20px 16px}
-.wrap{max-width:920px;margin:0 auto}
+.wrap{max-width:900px;margin:0 auto}
 h1{font-size:26px;font-weight:800;color:var(--wh);letter-spacing:-.5px}
 .sub{font-size:12px;color:var(--dm);margin-top:4px;line-height:1.5}
 .sub span{font-weight:600}
@@ -17,7 +17,7 @@ h1{font-size:26px;font-weight:800;color:var(--wh);letter-spacing:-.5px}
 .tab{padding:11px 16px;border:none;cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:500;color:var(--dm);background:transparent;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
 .tab:hover{color:var(--tx)}
 .tab.on{color:var(--wh);font-weight:700;background:rgba(67,56,202,.07);border-bottom-color:var(--id)}
-.box{background:var(--c1);border:1px solid var(--bd);border-radius:8px;padding:14px 12px;margin-bottom:12px;overflow-x:auto}
+.box{background:var(--c1);border:1px solid var(--bd);border-radius:8px;padding:14px 14px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .box .label{font-size:10px;color:var(--dm);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-family:'IBM Plex Mono',monospace}
 .grid{display:grid;gap:10px}.g4{grid-template-columns:repeat(4,1fr)}
 .met{background:var(--c1);border:1px solid var(--bd);border-radius:10px;padding:14px 10px;text-align:center;border-top:3px solid var(--id)}
@@ -35,12 +35,32 @@ h1{font-size:26px;font-weight:800;color:var(--wh);letter-spacing:-.5px}
 .sec h3{font-size:15px;font-weight:700;color:var(--wh);margin-bottom:4px}
 .sec .desc{font-size:11.5px;color:var(--dm);margin-bottom:12px;line-height:1.5}
 .footer{margin-top:32px;padding-top:14px;border-top:1px solid var(--bd);font-size:9px;color:var(--dm);text-align:center;font-family:'IBM Plex Mono',monospace}
+.guide{background:var(--c2);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:11.5px;color:var(--tx);line-height:1.65;border-left:3px solid var(--id)}
+.guide strong{color:var(--wh)}
 .vol-bar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-left:4px}
 table{border-collapse:collapse;width:100%;font-size:10px}
 th{padding:5px 6px;color:var(--dm);border-bottom:2px solid var(--bd);text-align:left;font-size:9px;font-family:'IBM Plex Mono',monospace}
 td{padding:5px 6px;border-bottom:1px solid var(--bd)}
 svg{display:block}
-@media(max-width:600px){.g4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){
+  body{padding:12px 8px}
+  h1{font-size:20px}
+  .sub{font-size:10px}
+  .g4{grid-template-columns:repeat(2,1fr)}
+  .met .v{font-size:20px}
+  .met .l{font-size:9px}
+  .met{padding:10px 6px}
+  .tab{padding:9px 10px;font-size:10px}
+  .box{padding:10px 8px}
+  .call{padding:10px 12px}
+  .call .ct{font-size:12px}
+  .call .cd{font-size:10.5px}
+  .sec h3{font-size:13px}
+  .sec .desc{font-size:10.5px}
+  table{font-size:9px}
+  th{font-size:8px}
+  .guide{font-size:10.5px;padding:10px 12px}
+}
 </style>
 </head>
 <body>
@@ -139,6 +159,8 @@ function buildSummary(el){
   const maxPE=Math.max(...Object.values(persEndpoints),1);
 
   el.innerHTML=`
+  <div class="guide"><strong>How to read this dashboard:</strong> This audit tests whether system-prompt personalities (neutral, school, news, reddit, vlog) cause models to change their trait rankings. A <strong>"confirmed shift"</strong> means a model occupies a statistically different rank for the same trait under two different personalities (non-overlapping bootstrapped 95% CIs). More shifts = the model's behaviour is more personality-dependent. Click trait tabs above for per-trait details. Scroll tables horizontally on mobile.</div>
+
   <div class="call" style="background:rgba(185,28,28,.04);border:1px solid rgba(185,28,28,.12)">
     <div class="ct" style="color:var(--rd)">Core Finding: Model Rankings Are Personality-Dependent</div>
     <div class="cd">Across 9 traits, 5 personalities, and 8 models (all at n=500/cell), we find <strong style="color:var(--wh)">99 statistically confirmed rank shifts</strong> — cases where the same model occupies a significantly different rank under different personalities (non-overlapping bootstrapped 95% CIs). <strong style="color:var(--wh)">8 of 8 models</strong> have at least one confirmed shift. <strong style="color:var(--wh)">Politeness</strong> is the most personality-sensitive trait (33 arcs, avg CI just 0.7 ranks).</div>
@@ -151,20 +173,20 @@ function buildSummary(el){
     <div class="met" style="border-top-color:var(--gn)"><div class="v" style="color:var(--gn)">0/8</div><div class="l">Fully Stable Models</div><div class="s">None</div></div>
   </div>
 
-  <div class="sec"><h3>Confirmed Shifts by Trait</h3>
+  <div class="sec"><h3>Confirmed Shifts by Trait</h3><div class="guide">Each row is one trait. <strong>Arcs</strong> = number of confirmed rank shifts (non-overlapping 95% CIs). <strong>Avg CI</strong> = average confidence interval width in rank positions (lower = more precise). <strong>Disruptor</strong> = the personality most often at one end of a shift. <strong>Max |Δ|</strong> = largest single rank swing observed.</div>
   <p class="desc">Click individual trait tabs for full charts.</p>
   <div class="box" id="trait-table"></div></div>
 
-  <div class="sec"><h3>Personality Disruption Profile</h3>
+  <div class="sec"><h3>Personality Disruption Profile</h3><div class="guide">Shows how often each personality appears at the endpoint of a confirmed shift arc. Personalities with more endpoints are more disruptive — they cause models to shift rank more often. The bar length indicates the total number of arc endpoints across all traits.</div>
   <p class="desc">How often each personality appears as an arc endpoint across all 9 traits.</p>
   <div class="box" id="pers-profile"></div></div>
 
-  <div class="sec"><h3>Which Models Are Unstable?</h3>
+  <div class="sec"><h3>Which Models Are Unstable?</h3><div class="guide">Lists each model's total confirmed shifts across all traits. <strong>Max |Δ|</strong> = the largest single rank swing for that model. <strong>Affected Traits</strong> lists which traits show instability. Models appearing here are sensitive to persona framing.</div>
   <div class="box" id="model-table"></div></div>
 
   ${stableModels.length?`<div class="sec"><h3>Which Models Are Stable?</h3><div class="box" id="stable-table"></div></div>`:''}
 
-  <div class="sec"><h3>Cross-Trait Heatmap</h3>
+  <div class="sec"><h3>Cross-Trait Heatmap</h3><div class="guide">Each cell shows the number of confirmed rank shifts for a given model × personality combination. Darker cells = more instability. This helps identify which model-personality combinations are most problematic across all traits.</div>
   <p class="desc">Arc endpoints per (model × personality), summed across all 9 traits.</p>
   <div class="box" id="heatmap"></div></div>
 
@@ -230,7 +252,7 @@ function buildSummary(el){
   const W=700,cellW=90,cellH=28,hmLM=100,hmTM=25;
   const hH=hmTM+allModels.length*cellH+5;
   const sv=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  sv.setAttribute('width',W);sv.setAttribute('height',hH);sv.style.display='block';hm.appendChild(sv);
+  sv.setAttribute('viewBox','0 0 '+W+' '+hH);sv.setAttribute('width',W);sv.setAttribute('height',hH);sv.style.display='block';sv.style.maxWidth='100%';hm.appendChild(sv);
   UCS.forEach((uc,j)=>{S('text',{x:hmLM+j*cellW+cellW/2,y:hmTM-8,textAnchor:'middle',fill:'var(--wh)',fontSize:9,fontFamily:fn,fontWeight:600,text:uc},sv)});
   allModels.forEach((m,i)=>{
     const y=hmTM+i*cellH;const tot=UCS.reduce((s,uc)=>s+(counts[m]?.[uc]||0),0);
@@ -255,6 +277,7 @@ function buildPane(el,T){
   const ciCol=T.avg_ci>4?'var(--rd)':T.avg_ci>3?'var(--am)':'var(--gn)';
 
   el.innerHTML=`
+  <div class="guide"><strong>${T.label}:</strong> ${T.type==='emotion'?'Measured via emotion classifier (mean_prob_a − mean_prob_b)':'Measured via LLM-as-judge (preferred_text_combined)'}. Each model is ranked 1–${nM} per personality. <strong>Confirmed shifts</strong> (red arcs) connect personality pairs where the same model occupies a statistically different rank. <strong>CI width</strong> shows ranking precision — narrower = more confident. <strong>Volatile models</strong> have rank σ > 1.5 across personalities.</div>
   <div class="grid g4" style="margin-bottom:16px">
     <div class="met" style="border-top-color:${arcCol}"><div class="v" style="color:${arcCol}">${T.n_arcs}</div><div class="l">Confirmed Rank Shifts</div><div class="s">Non-overlapping 95% CIs</div></div>
     <div class="met" style="border-top-color:${ciCol}"><div class="v" style="color:${ciCol}">${T.avg_ci}</div><div class="l">Avg CI Width (ranks)</div><div class="s">Lower = more stable</div></div>
@@ -264,14 +287,14 @@ function buildPane(el,T){
   <div class="call" style="background:rgba(67,56,202,.04);border:1px solid rgba(67,56,202,.1)">
     <div class="ct" style="color:var(--id)">${T.label} — Key Finding</div><div class="cd">${T.note}</div>
   </div>
-  <div class="sec"><h3>Rank Distributions</h3>
+  <div class="sec"><h3>Rank Distributions</h3><div class="guide">Each column is a personality. Vertical bars show each model's bootstrapped 95% CI for its rank. Square markers = base models, circles = chat models. Red arcs connect personality pairs where CIs don't overlap (confirmed shift). Models near the top are ranked highest for this trait.</div>
   <p class="desc">Vertical bars = bootstrapped 95% CI of rank. ■ base ● chat. Arcs = non-overlapping CIs.</p>
   <div class="leg" id="leg-${T.id}"></div>
   <div class="box"><div class="label">${T.label} — rank #1 = highest value</div><div id="chart-${T.id}"></div></div></div>
-  <div class="sec"><h3>Real Value Distributions</h3>
+  <div class="sec"><h3>Real Value Distributions</h3><div class="guide">Shows the actual metric values (not ranks) per model and personality. This reveals whether rank shifts come from large absolute differences or from models bunching close together where small changes flip positions.</div>
   <p class="desc">Y-axis = actual cell means. 95% t-based CI, n=${T.n_cell}/cell.</p>
   <div class="box"><div class="label">${T.label} — real values</div><div id="valchart-${T.id}"></div></div></div>
-  <div class="sec"><h3>Volatility Table</h3>
+  <div class="sec"><h3>Volatility Table</h3><div class="guide"><strong>Rank σ</strong> = standard deviation of each model's rank across the 5 personalities. Higher σ = more volatile. <strong>Best/Worst</strong> = the personality where this model ranks highest/lowest. <strong>Swing</strong> = difference between best and worst rank. Scroll horizontally on mobile to see all columns.</div>
   <div class="box" id="voltable-${T.id}"></div></div>`;
 
   const legEl=document.getElementById('leg-'+T.id);
@@ -292,7 +315,7 @@ function drawChart(container,RANK,PAIRS,MODS){
   const barW=Math.min(5,Math.floor((colW-10)/nM)),gap=Math.max(1,barW/3),totalBarW=nM*(barW+gap)-gap;
   function barCx(ci,mi){return lM+ci*colW+(colW-totalBarW)/2+mi*(barW+gap)+barW/2}
   const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  s.setAttribute('width',W);s.setAttribute('height',H);s.style.display='block';container.appendChild(s);
+  s.setAttribute('viewBox','0 0 '+W+' '+H);s.setAttribute('width',W);s.setAttribute('height',H);s.style.display='block';s.style.maxWidth='100%';container.appendChild(s);
   for(let r=1;r<=nM;r++){const y=yS(r);S('line',{x1:lM,y1:y,x2:W-rM,y2:y,stroke:'var(--bd)',strokeWidth:0.4},s);const isT=r<=Math.ceil(nM/3),isB=r>nM-Math.ceil(nM/3);S('text',{x:lM-6,y:y+3,textAnchor:'end',fill:isT?'var(--gn)':isB?'var(--rd)':'var(--dm)',fontSize:9,fontFamily:fn,fontWeight:(isT||isB)?700:400,text:'#'+r},s)}
   S('rect',{x:lM,y:yS(yMin),width:W-lM-rM,height:yS(Math.ceil(nM/3)+0.5)-yS(yMin),fill:'rgba(4,120,87,0.03)'},s);
   S('rect',{x:lM,y:yS(nM-Math.ceil(nM/3)+0.5),width:W-lM-rM,height:yS(yMax)-yS(nM-Math.ceil(nM/3)+0.5),fill:'rgba(185,28,28,0.03)'},s);
@@ -334,7 +357,7 @@ function drawValueChart(container,VAL,PAIRS,MODS){
   const barW=Math.min(5,Math.floor((colW-10)/nM)),gap=Math.max(1,barW/3),totalBarW=nM*(barW+gap)-gap;
   function barCx(ci,mi){return lM+ci*colW+(colW-totalBarW)/2+mi*(barW+gap)+barW/2}
   const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  s.setAttribute('width',W);s.setAttribute('height',H);s.style.display='block';container.appendChild(s);
+  s.setAttribute('viewBox','0 0 '+W+' '+H);s.setAttribute('width',W);s.setAttribute('height',H);s.style.display='block';s.style.maxWidth='100%';container.appendChild(s);
   const range=yMaxV-yMinV,mag=Math.pow(10,Math.floor(Math.log10(range)));
   let step=mag;if(range/step<4)step=mag/2;if(range/step<4)step=mag/4;if(range/step>10)step=mag*2;
   for(let v=Math.ceil(yMinV/step)*step;v<=yMaxV;v+=step){
