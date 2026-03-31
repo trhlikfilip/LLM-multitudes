@@ -252,7 +252,7 @@ function buildSummary(el){
   const W=700,cellW=90,cellH=28,hmLM=100,hmTM=25;
   const hH=hmTM+allModels.length*cellH+5;
   const sv=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  sv.setAttribute('viewBox','0 0 '+W+' '+hH);sv.setAttribute('width',W);sv.setAttribute('height',hH);sv.style.display='block';sv.style.maxWidth='100%';hm.appendChild(sv);
+  sv.setAttribute('viewBox','0 0 '+W+' '+hH);sv.style.display='block';sv.style.width='100%';sv.style.aspectRatio=W+'/'+hH;hm.appendChild(sv);
   UCS.forEach((uc,j)=>{S('text',{x:hmLM+j*cellW+cellW/2,y:hmTM-8,textAnchor:'middle',fill:'var(--wh)',fontSize:9,fontFamily:fn,fontWeight:600,text:uc},sv)});
   allModels.forEach((m,i)=>{
     const y=hmTM+i*cellH;const tot=UCS.reduce((s,uc)=>s+(counts[m]?.[uc]||0),0);
@@ -315,7 +315,7 @@ function drawChart(container,RANK,PAIRS,MODS){
   const barW=Math.min(5,Math.floor((colW-10)/nM)),gap=Math.max(1,barW/3),totalBarW=nM*(barW+gap)-gap;
   function barCx(ci,mi){return lM+ci*colW+(colW-totalBarW)/2+mi*(barW+gap)+barW/2}
   const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  s.setAttribute('viewBox','0 0 '+W+' '+H);s.setAttribute('width',W);s.setAttribute('height',H);s.style.display='block';s.style.maxWidth='100%';container.appendChild(s);
+  s.setAttribute('viewBox','0 0 '+W+' '+H);s.style.display='block';s.style.width='100%';s.style.aspectRatio=W+'/'+H;container.appendChild(s);
   for(let r=1;r<=nM;r++){const y=yS(r);S('line',{x1:lM,y1:y,x2:W-rM,y2:y,stroke:'var(--bd)',strokeWidth:0.4},s);const isT=r<=Math.ceil(nM/3),isB=r>nM-Math.ceil(nM/3);S('text',{x:lM-6,y:y+3,textAnchor:'end',fill:isT?'var(--gn)':isB?'var(--rd)':'var(--dm)',fontSize:9,fontFamily:fn,fontWeight:(isT||isB)?700:400,text:'#'+r},s)}
   S('rect',{x:lM,y:yS(yMin),width:W-lM-rM,height:yS(Math.ceil(nM/3)+0.5)-yS(yMin),fill:'rgba(4,120,87,0.03)'},s);
   S('rect',{x:lM,y:yS(nM-Math.ceil(nM/3)+0.5),width:W-lM-rM,height:yS(yMax)-yS(nM-Math.ceil(nM/3)+0.5),fill:'rgba(185,28,28,0.03)'},s);
@@ -357,7 +357,7 @@ function drawValueChart(container,VAL,PAIRS,MODS){
   const barW=Math.min(5,Math.floor((colW-10)/nM)),gap=Math.max(1,barW/3),totalBarW=nM*(barW+gap)-gap;
   function barCx(ci,mi){return lM+ci*colW+(colW-totalBarW)/2+mi*(barW+gap)+barW/2}
   const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  s.setAttribute('viewBox','0 0 '+W+' '+H);s.setAttribute('width',W);s.setAttribute('height',H);s.style.display='block';s.style.maxWidth='100%';container.appendChild(s);
+  s.setAttribute('viewBox','0 0 '+W+' '+H);s.style.display='block';s.style.width='100%';s.style.aspectRatio=W+'/'+H;container.appendChild(s);
   const range=yMaxV-yMinV,mag=Math.pow(10,Math.floor(Math.log10(range)));
   let step=mag;if(range/step<4)step=mag/2;if(range/step<4)step=mag/4;if(range/step>10)step=mag*2;
   for(let v=Math.ceil(yMinV/step)*step;v<=yMaxV;v+=step){
