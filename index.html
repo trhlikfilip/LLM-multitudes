@@ -13,11 +13,12 @@
   --id:#4338ca;--pk:#9d174d;--gn:#047857;--rd:#b91c1c;
   --am:#b45309;--pu:#6d28d9;--or:#9a3412;--cy:#0369a1;
 }
-html,body{height:100%;overflow:hidden}
+html,body{height:100%}
+body{overflow:auto}
 body{background:var(--bg);color:var(--tx);font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 
 /* ── Landing screen ── */
-.landing{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:48px;padding:24px;transition:opacity .4s,transform .4s}
+.landing{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:48px;padding:24px;transition:opacity .4s,transform .4s;overflow-y:auto}
 .landing.hidden{opacity:0;pointer-events:none;transform:translateY(-20px);position:absolute;inset:0}
 .landing-header{text-align:center}
 .landing-header h1{font-size:clamp(28px,5vw,42px);font-weight:800;color:var(--wh);letter-spacing:-.8px;line-height:1.15}
@@ -26,6 +27,18 @@ body{background:var(--bg);color:var(--tx);font-family:'Instrument Sans',system-u
 
 .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:960px;width:100%}
 @media(max-width:800px){.cards{grid-template-columns:1fr;max-width:380px}}
+@media(max-width:600px){
+  .landing{gap:24px;padding:32px 16px;justify-content:flex-start}
+  .landing-header h1{font-size:24px}
+  .landing-header p{font-size:10px}
+  .card{padding:22px 18px}
+  .card h2{font-size:16px}
+  .card .cd{font-size:10.5px}
+  .card .icon{width:40px;height:40px;margin-bottom:12px}
+  .topbar{padding:8px 12px}
+  .topbar .title{font-size:10px}
+  .back-btn{padding:5px 10px;font-size:9px}
+}
 
 .card{
   background:var(--c1);border:1px solid var(--bd);border-radius:14px;
@@ -138,7 +151,7 @@ iframe{flex:1;border:none;width:100%;background:var(--bg)}
       </div>
       <h2>Personality Trait Analysis</h2>
       <p class="cd">Personality-driven rank instability audit. How system-prompt personalities cause models to shift trait rankings across 6 emotions, 3 judged traits, and 5 persona framings.</p>
-      <span class="tag">11 models · 5 personas · 9 traits</span>
+      <span class="tag">8 models · 5 personas · 9 traits</span>
       <span class="arrow">→</span>
     </div>
   </div>
@@ -164,6 +177,7 @@ function openView(type){
   var dot=document.getElementById('viewDot');
   var title=document.getElementById('viewTitle');
 
+  document.body.style.overflow='hidden';
   landing.classList.add('hidden');
   setTimeout(function(){
     viewer.classList.add('show');
@@ -190,6 +204,7 @@ function goBack(){
   viewer.classList.remove('show');
   frame.src='about:blank';
   landing.classList.remove('hidden');
+  document.body.style.overflow='auto';
 }
 </script>
 </body>
