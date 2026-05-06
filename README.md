@@ -7,7 +7,6 @@ We test whether reported LLM-level preferences and values survive when the surro
 ## Resources
 
 - **Dataset (1B+ tokens, parsed votes, per-context vote matrices, fitted Thurstonian utilities, reasoning traces):** [`LLM-multitudes-neurips-2026/LLM-Multitudes`](https://huggingface.co/datasets/LLM-multitudes-neurips-2026/LLM-Multitudes) on Hugging Face.
-- **Anonymous code mirror:** [`anonymous.4open.science/r/LLM-multitudes-FF64`](https://anonymous.4open.science/r/LLM-multitudes-FF64).
 
 If you only want to reproduce the statistical analyses, downloading the Hugging Face dataset is sufficient; the audit scripts below are only needed to regenerate raw model outputs.
 
