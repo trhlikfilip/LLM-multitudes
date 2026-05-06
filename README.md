@@ -36,7 +36,7 @@ export OPENROUTER_APP_NAME=...
 
 Open-weight models (Llama 3.1-8B, Llama 3.3-70B, Qwen-3-30B-MoE, Mistral Small 4) are routed through OpenRouter. Claude Sonnet 4.6 is served via AWS Bedrock through the global cross-region inference profile. Full model identifiers are listed in Appendix E.1 of the paper.
 
-The four analysis scripts (`cmh.py`, `country_preference_sig.py`, `utility_per_domain_spearman.py`, `utiltity_outcome_sig.py`) each contain a `BASE = Path("...")` placeholder pointing to the elicitation outputs. Set this to a local copy of the Hugging Face dataset (or to the directory the audit scripts wrote into). The bootstrap rank test additionally expects `bootstrap_mu_cache_N1000.npz` (a precomputed cache of 1000 Thurstonian fits per (model, context)) inside `BASE`; this file ships with the Hugging Face release.
+The four analysis scripts (`cmh.py`, `country_preference_sig.py`, `utility_per_domain_spearman.py`, `utiltity_outcome_sig.py`) each contain a `BASE = Path("...")` placeholder pointing to the elicitation outputs. Set this to a local copy of the Hugging Face dataset (or to the directory the audit scripts wrote into). The bootstrap rank test additionally expects `bootstrap_mu_cache_N1000.npz` (a precomputed cache of 1000 Thurstonian fits per (model, context)) inside `BASE`.
 
 ## Reproducing the main experiments
 
