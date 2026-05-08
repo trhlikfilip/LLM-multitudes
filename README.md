@@ -14,14 +14,21 @@ If you only want to reproduce the statistical analyses, downloading the Hugging 
 
 ```
 code/
-├── country preference/                  # Experiment 1 (Section 4)
-│   ├── audit.py                         # OpenRouter pairwise elicitation
-│   ├── cmh.py                           # Cochran-Mantel-Haenszel test (RQ1)
-│   └── country_preference_sig.py        # BH-FDR Mann-Whitney rank test (RQ1)
-└── utility elicitation/                 # Experiment 2 (Section 5)
-    ├── audit_utility.py                 # OpenRouter elicitation + Thurstonian fit
-    ├── utility_per_domain_spearman.py   # Per-(model, domain) Spearman rho (RQ5)
-    └── utiltity_outcome_sig.py          # Bootstrap rank test, BH-FDR (RQ4)
+├── country preference/                 # Preference Elicitation (Section 4)
+│ ├── audit.py                          # OpenRouter pairwise elicitation
+│ ├── cmh.py                            # Cochran-Mantel-Haenszel test (RQ1)
+│ └── country_preference_sig.py         # BH-FDR Mann-Whitney rank test (RQ1)
+├── utility elicitation/                # Utility Elicitation (Section 5)
+│ ├── audit_utility.py                  # elicitation + Thurstonian fit
+│ ├── utility_per_domain_spearman.py    # Per-(model, domain) Spearman rho (RQ5)
+│ └── utiltity_outcome_sig.py           # Bootstrap rank test, BH-FDR (RQ4)
+└── appendix/                           # Reasoning Analysis (Appendix C)
+├── jsd.py                              # JS divergence between contexts
+├── register.py                         # Hedges + discourse markers
+├── verdict.py                          # Verdict-marker rate + position
+├── cliche.py                           # Cliché / formulaic-phrase rate
+├── selfbleu.py                         # Self-BLEU within cell (templating)
+└── formal.py                           # Formal-register components
 ```
 
 ## Setup
@@ -68,7 +75,15 @@ python utiltity_outcome_sig.py                             # bootstrap rank test
 
 ## Sampling configuration
 
-All experiments use `temperature=1.0`, `max_tokens=768`, `top_p=1.0` (default). The exact context-induction lines, system messages, and counterbalancing scheme are documented in Section 3 (Figure 2) and Appendix E.1 of the paper.
+All experiments use `temperature=1.0`, `max_tokens=768`, `top_p=1.0`. The exact context-induction lines, system messages, and counterbalancing scheme are documented in Section 3 (Figure 2) and Appendix E.1 of the paper.
+
+### Appendix: Linguistic-style metrics
+
+Six standalone scripts in `code/appendix/` reproduce the supplementary heatmaps
+on the reasoning text of Experiment 1 (JS divergence, hedges, verdict markers,
+clichés, self-BLEU, formal-register components). Each is end-to-end (corpus
+scan → JSON → figure); set the `BASE` and `OUT` `Path("...")` placeholders at
+the top of each file to your local copy of the country-preference CSVs.
 
 ## Citation
 
