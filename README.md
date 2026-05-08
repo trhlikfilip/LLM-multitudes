@@ -72,10 +72,6 @@ python utiltity_outcome_sig.py                             # bootstrap rank test
 
 `audit_utility.py` is similarly crash-safe and supports `--fresh-start`, `--usecase <name>`, and `--repeats <n>`.
 
-## Sampling configuration
-
-All experiments use `temperature=1.0`, `max_tokens=768`, `top_p=1.0`. The exact context-induction lines, system messages, and counterbalancing scheme are documented in Section 3 (Figure 2) and Appendix E.1 of the paper.
-
 ### Appendix: Linguistic-style metrics
 
 Six standalone scripts in `code/appendix/` reproduce the supplementary heatmaps
@@ -83,6 +79,10 @@ on the reasoning text of Experiment 1 (JS divergence, hedges, verdict markers,
 clichés, self-BLEU, formal-register components). Each is end-to-end (corpus
 scan → JSON → figure); set the `BASE` and `OUT` `Path("...")` placeholders at
 the top of each file to your local copy of the country-preference CSVs.
+
+## Sampling configuration
+
+All experiments use `temperature=1.0`, `max_tokens=768`, `top_p=1.0`. The exact context-induction lines, system messages, and counterbalancing scheme are documented in Section 3 (Figure 2) and Appendix E.1 of the paper.
 
 ## Citation
 
