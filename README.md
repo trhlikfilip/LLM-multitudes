@@ -13,7 +13,6 @@ If you only want to reproduce the statistical analyses, downloading the Hugging 
 ## Repository structure
 
 ```
-
 ├── country preference/                 # Preference Elicitation (Section 4)
 │ ├── audit.py                          # OpenRouter pairwise elicitation
 │ ├── cmh.py                            # Cochran-Mantel-Haenszel test (RQ1)
