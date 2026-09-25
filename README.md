@@ -1,6 +1,6 @@
 # LLM-Multitudes
 
-Code accompanying the NeurIPS 2026 submission **"LLMs Contain Multitudes: How Deployment Context Reshapes Model-Level Preferences and Values"**.
+Code accompanying the ICLR 2027 submission **"LLMs Contain Multitudes: How Deployment Context Reshapes Model Preferences & Values"**.
 
 We test whether reported LLM-level preferences and values survive when the surrounding deployment context changes. Across five widely-used LLMs and over 1B generated tokens, deployment context (e.g., writing a Reddit post, a news article, a school essay) produces variation far larger than prompt paraphrasing or temperature shifts.
 
