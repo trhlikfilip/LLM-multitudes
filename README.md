@@ -1,21 +1,21 @@
 # LLM-Multitudes
 
-Code accompanying the ICLR 2027 submission **"LLMs Contain Multitudes: How Deployment Context Reshapes Model Preferences & Values"**.
+Code accompanying the ICLR 2027 submission **"LLMs Contain Multitudes: How Deployment Context Reshapes Model-Level Preferences and Values"**.
 
 We test whether reported LLM-level preferences and values survive when the surrounding deployment context changes. Across five widely-used LLMs and over 1B generated tokens, deployment context (e.g., writing a Reddit post, a news article, a school essay) produces variation far larger than prompt paraphrasing or temperature shifts.
 
 ## Resources
 
-- **Dataset (1B+ tokens, parsed votes, per-context vote matrices, fitted Thurstonian utilities, reasoning traces):** [`LLM-multitudes-neurips-2026/LLM-Multitudes`](https://huggingface.co/datasets/LLM-multitudes-neurips-2026/LLM-Multitudes) on Hugging Face.
+- **Dataset (1B+ tokens, parsed votes, per-context vote matrices, fitted Thurstonian utilities, reasoning traces):** [`LLM-multitudes-2027/LLM-Multitudes`](https://huggingface.co/datasets/LLM-multitudes-2027/LLM-Multitudes) on Hugging Face.
 
-If you only want to reproduce the statistical analyses, downloading the Hugging Face dataset is sufficient; the audit scripts below are only needed to regenerate raw model outputs.
+The statistical analyses use the saved elicitation outputs; the audit scripts below are only needed to regenerate raw model outputs.
 
 ## Repository structure
 
 ```
 ├── country preference/                 # Preference Elicitation (Section 4)
 │ ├── audit.py                          # OpenRouter pairwise elicitation
-│ ├── cmh.py                            # Cochran-Mantel-Haenszel test (RQ1)
+│ ├── permutation_test.py              # Stratified permutation tests + Holm (RQ1/RQ3)
 │ └── country_preference_sig.py         # BH-FDR Mann-Whitney rank test (RQ1)
 ├── utility elicitation/                # Utility Elicitation (Section 5)
 │ ├── audit_utility.py                  # elicitation + Thurstonian fit
@@ -33,7 +33,7 @@ If you only want to reproduce the statistical analyses, downloading the Hugging 
 ## Setup
 
 ```bash
-pip install openai numpy pandas scipy statsmodels torch tqdm
+pip install openai numpy pandas scipy statsmodels torch tqdm pyarrow matplotlib scikit-learn nltk
 export OPENROUTER_API_KEY=...
 # optional, recommended by OpenRouter:
 export OPENROUTER_SITE_URL=...
@@ -42,7 +42,7 @@ export OPENROUTER_APP_NAME=...
 
 Open-weight models (Llama 3.1-8B, Llama 3.3-70B, Qwen-3-30B-MoE, Mistral Small 4) are routed through OpenRouter. Claude Sonnet 4.6 is served via AWS Bedrock through the global cross-region inference profile. Full model identifiers are listed in Appendix E.1 of the paper.
 
-The four analysis scripts (`cmh.py`, `country_preference_sig.py`, `utility_per_domain_spearman.py`, `utiltity_outcome_sig.py`) each contain a `BASE = Path("...")` placeholder pointing to the elicitation outputs. Set this to a local copy of the Hugging Face dataset (or to the directory the audit scripts wrote into). The bootstrap rank test additionally expects `bootstrap_mu_cache_N1000.npz` (a precomputed cache of 1000 Thurstonian fits per (model, context)) inside `BASE`.
+`permutation_test.py` accepts comparison CSV or Parquet paths directly. The other analysis scripts contain a `BASE = Path("...")` placeholder; set this and the output paths to your local elicitation CSVs. The bootstrap rank test additionally expects `bootstrap_mu_cache_N1000.npz` (a precomputed cache of 1000 Thurstonian fits per (model, context)) inside `BASE`.
 
 ## Reproducing the main experiments
 
@@ -53,9 +53,12 @@ The four analysis scripts (`cmh.py`, `country_preference_sig.py`, `utility_per_d
 ```bash
 cd "country preference"
 python audit.py                                            # elicitation
-python cmh.py comparisons_all_<tag>.csv                    # decision-level CMH (RQ1)
+python permutation_test.py /path/to/country_comparisons/*.parquet \
+  --controls /path/to/country_comparisons_ablations          # decision-level RQ1/RQ3
 python country_preference_sig.py                           # rank-level BH-FDR (RQ1)
 ```
+
+`permutation_test.py` sums Pearson chi-square statistics across country pairs and permutes condition labels within each pair, retaining one decision per AB/BA-consistent block. Holm correction is applied separately to the 300 main context comparisons, 30 wording comparisons and 150 temperature comparisons. Supply all five model files for the main analysis. The optional `--controls` directory uses the released ablation filenames. Results are saved to `permutation_results.csv`.
 
 `audit.py` writes `comparisons_all_<tag>.csv` plus per-context splits and a `checkpoint_rows_all_<tag>.jsonl` resume log; an interrupted run can be restarted by re-invoking the same command.
 
@@ -74,7 +77,7 @@ python utiltity_outcome_sig.py                             # bootstrap rank test
 
 ### Appendix: Linguistic-style metrics
 
-Six standalone scripts in `code/appendix/` reproduce the supplementary heatmaps
+Six standalone scripts in `appendix/` reproduce the supplementary heatmaps
 on the reasoning text of Experiment 1 (JS divergence, hedges, verdict markers,
 clichés, self-BLEU, formal-register components). Each is end-to-end (corpus
 scan → JSON → figure); set the `BASE` and `OUT` `Path("...")` placeholders at
@@ -86,4 +89,4 @@ All experiments use `temperature=1.0`, `max_tokens=768`, `top_p=1.0`. The exact 
 
 ## Citation
 
-Anonymized for NeurIPS review.
+Anonymized for ICLR review.
